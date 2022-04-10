@@ -50,7 +50,7 @@ type Bitcoin struct {
 	client   *resty.Client
 }
 
-func NewBlockchain(config blockchain.BlockchainConfig) (*Bitcoin, error) {
+func NewBlockchain(config blockchain.BlockchainConfig) (blockchain.Blockchain, error) {
 	return &Bitcoin{
 		config:   config,
 		settings: new(blockchain.BlockchainSettings),
@@ -116,6 +116,15 @@ func (b *Bitcoin) GetLatestBlockNumber() (int64, error) {
 	return resp, nil
 }
 
+func (b *Bitcoin) GetBlockByNumber(block_number int64) (*block.Block, error) {
+	var hash string
+	if err := b.jsonRPC(&hash, "getblockhash", block_number); err != nil {
+		return nil, err
+	}
+
+	return b.GetBlockByHash(hash)
+}
+
 func (b *Bitcoin) GetBlockByHash(hash string) (*block.Block, error) {
 	var resp *Block
 	b.jsonRPC(&resp, "getblock", hash, 2)
@@ -126,6 +135,32 @@ func (b *Bitcoin) GetBlockByHash(hash string) (*block.Block, error) {
 		Number:       resp.Height,
 		Transactions: transactions,
 	}, nil
+}
+
+func (b *Bitcoin) GetBalanceOfAddress(address string, _currency_id string) (decimal.Decimal, error) {
+	var resp [][][]string
+	if err := b.jsonRPC(&resp, "listaddressgroupings", address); err != nil {
+		return decimal.Zero, err
+	}
+
+	for _, gr := range resp {
+		for _, a := range gr {
+			if a[0] == address {
+				return decimal.NewFromString(a[1])
+			}
+		}
+	}
+
+	return decimal.Zero, errors.New("unavailable address balance")
+}
+
+func (b *Bitcoin) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
+	var resp *TxHash
+	if err := b.jsonRPC(&resp, "getrawtransaction", transaction_hash, 1); err != nil {
+		return nil, err
+	}
+
+	return b.buildTransaction(resp), nil
 }
 
 func (b *Bitcoin) transactionSource(transaction *transaction.Transaction) (addresses []string) {
