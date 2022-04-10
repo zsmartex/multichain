@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"github.com/zsmartex/go-peatio/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
 type GasPriceRate string

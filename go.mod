@@ -1,4 +1,4 @@
-module github.com/zsmartex/go-peatio
+module github.com/zsmartex/multichain
 
 go 1.18
 

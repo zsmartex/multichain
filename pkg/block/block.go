@@ -1,7 +1,7 @@
 package block
 
 import (
-	"github.com/zsmartex/go-peatio/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
 type Block struct {

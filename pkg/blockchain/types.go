@@ -2,8 +2,8 @@ package blockchain
 
 import (
 	"github.com/shopspring/decimal"
-	"github.com/zsmartex/go-peatio/pkg/block"
-	"github.com/zsmartex/go-peatio/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/block"
+	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
 type BlockchainSettings struct {

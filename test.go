@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/zsmartex/go-peatio/chains/evm"
-	"github.com/zsmartex/go-peatio/pkg/blockchain"
+	"github.com/zsmartex/multichain/chains/evm"
+	"github.com/zsmartex/multichain/pkg/blockchain"
 )
 
 func main() {

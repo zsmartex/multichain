@@ -14,9 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
-	"github.com/zsmartex/go-peatio/pkg/block"
-	"github.com/zsmartex/go-peatio/pkg/blockchain"
-	"github.com/zsmartex/go-peatio/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/block"
+	"github.com/zsmartex/multichain/pkg/blockchain"
+	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
 var abiDefinition = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"type":"function"}]`
