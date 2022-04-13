@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/ethereum/go-ethereum v1.10.17
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/gookit/goutil v0.4.6
+	github.com/gookit/goutil v0.5.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/volatiletech/null/v9 v9.0.0
 )
