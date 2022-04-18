@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/zsmartex/multichain/pkg/blockchain"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
@@ -11,13 +12,23 @@ const (
 	GasPriceRateFast     GasPriceRate = "fast"
 )
 
+type SettingWallet struct {
+	URI     string
+	Secret  string
+	Address string
+}
+
+type Setting struct {
+	Currency *blockchain.Currency
+	Wallet   *SettingWallet
+}
+
 type Wallet interface {
-	// Get current balance of address
-	GetBalance(address string)
+	Configure(settings *Setting) error
 
 	// Create new address from server
-	CreateAddress(secret string)
+	CreateAddress(secret string) (address string, err error)
 
 	// Create a transaction and send it to the server
-	CreateTransaction(transaction transaction.Transaction, secret string) error
+	CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error)
 }

@@ -1,4 +1,4 @@
-package blockchain
+package bitcoin
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"math/rand"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/gookit/goutil/arrutil"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
 	"github.com/zsmartex/multichain/pkg/block"
@@ -43,22 +42,19 @@ type Block struct {
 	Tx            []*TxHash `json:"tx"`
 }
 
-type Bitcoin struct {
-	currency *blockchain.BlockchainSettingsCurrency
-	config   blockchain.BlockchainConfig
-	settings *blockchain.BlockchainSettings
+type Blockchain struct {
+	currency *blockchain.Currency
+	settings *blockchain.Settings
 	client   *resty.Client
 }
 
-func NewBlockchain(config blockchain.BlockchainConfig) (blockchain.Blockchain, error) {
-	return &Bitcoin{
-		config:   config,
-		settings: new(blockchain.BlockchainSettings),
-		client:   resty.New(),
-	}, nil
+func NewBlockchain() blockchain.Blockchain {
+	return &Blockchain{
+		client: resty.New(),
+	}
 }
 
-func (b *Bitcoin) Configure(settings *blockchain.BlockchainSettings) {
+func (b *Blockchain) Configure(settings *blockchain.Settings) error {
 	b.settings = settings
 
 	for _, c := range settings.Currencies {
@@ -66,9 +62,11 @@ func (b *Bitcoin) Configure(settings *blockchain.BlockchainSettings) {
 		b.currency = c
 		break
 	}
+
+	return nil
 }
 
-func (b *Bitcoin) jsonRPC(resp interface{}, method string, params ...interface{}) error {
+func (b *Blockchain) jsonRPC(resp interface{}, method string, params ...interface{}) error {
 	type Result struct {
 		Version string           `json:"version"`
 		ID      int              `json:"id"`
@@ -79,12 +77,16 @@ func (b *Bitcoin) jsonRPC(resp interface{}, method string, params ...interface{}
 	response, err := b.client.
 		R().
 		SetResult(Result{}).
+		SetHeaders(map[string]string{
+			"Accept":       "application/json",
+			"Content-Type": "application/json",
+		}).
 		SetBody(map[string]interface{}{
 			"version": "2.0",
 			"id":      rand.Int(),
 			"method":  method,
 			"params":  params,
-		}).Post(b.config.URI)
+		}).Post(b.settings.URI)
 
 	if err != nil {
 		return err
@@ -107,7 +109,7 @@ func (b *Bitcoin) jsonRPC(resp interface{}, method string, params ...interface{}
 	return nil
 }
 
-func (b *Bitcoin) GetLatestBlockNumber() (int64, error) {
+func (b *Blockchain) GetLatestBlockNumber() (int64, error) {
 	var resp int64
 	if err := b.jsonRPC(&resp, "getblockcount"); err != nil {
 		return 0, err
@@ -116,7 +118,7 @@ func (b *Bitcoin) GetLatestBlockNumber() (int64, error) {
 	return resp, nil
 }
 
-func (b *Bitcoin) GetBlockByNumber(block_number int64) (*block.Block, error) {
+func (b *Blockchain) GetBlockByNumber(block_number int64) (*block.Block, error) {
 	var hash string
 	if err := b.jsonRPC(&hash, "getblockhash", block_number); err != nil {
 		return nil, err
@@ -125,7 +127,7 @@ func (b *Bitcoin) GetBlockByNumber(block_number int64) (*block.Block, error) {
 	return b.GetBlockByHash(hash)
 }
 
-func (b *Bitcoin) GetBlockByHash(hash string) (*block.Block, error) {
+func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
 	var resp *Block
 	b.jsonRPC(&resp, "getblock", hash, 2)
 
@@ -137,7 +139,7 @@ func (b *Bitcoin) GetBlockByHash(hash string) (*block.Block, error) {
 	}, nil
 }
 
-func (b *Bitcoin) GetBalanceOfAddress(address string, _currency_id string) (decimal.Decimal, error) {
+func (b *Blockchain) GetBalanceOfAddress(address string, _currency_id string) (decimal.Decimal, error) {
 	var resp [][][]string
 	if err := b.jsonRPC(&resp, "listaddressgroupings", address); err != nil {
 		return decimal.Zero, err
@@ -154,7 +156,7 @@ func (b *Bitcoin) GetBalanceOfAddress(address string, _currency_id string) (deci
 	return decimal.Zero, errors.New("unavailable address balance")
 }
 
-func (b *Bitcoin) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
 	var resp *TxHash
 	if err := b.jsonRPC(&resp, "getrawtransaction", transaction_hash, 1); err != nil {
 		return nil, err
@@ -163,11 +165,10 @@ func (b *Bitcoin) GetTransaction(transaction_hash string) ([]*transaction.Transa
 	return b.buildTransaction(resp), nil
 }
 
-func (b *Bitcoin) transactionSource(transaction *transaction.Transaction) (addresses []string) {
+func (b *Blockchain) transactionSource(transaction *transaction.Transaction) (address string) {
 	var transHash *TxHash
 	b.jsonRPC(&transHash, "getrawtransaction", transaction.TxHash.String, 1)
 
-	source_addresses := make([]string, 0)
 	for _, vin := range transHash.Vin {
 		if len(vin.TxID) == 0 {
 			continue
@@ -184,15 +185,14 @@ func (b *Bitcoin) transactionSource(transaction *transaction.Transaction) (addre
 		}
 
 		address := source.ScriptPubKey.Addresses[0]
-		if arrutil.NotContains(source_addresses, address) {
-			source_addresses = append(source_addresses, address)
-		}
+
+		return address
 	}
 
-	return source_addresses
+	return ""
 }
 
-func (b *Bitcoin) buildTransaction(tx *TxHash) []*transaction.Transaction {
+func (b *Blockchain) buildTransaction(tx *TxHash) []*transaction.Transaction {
 	transactions := make([]*transaction.Transaction, 0)
 	for _, entry := range tx.VOut {
 		if entry.Value.IsNegative() || entry.ScriptPubKey.Addresses == nil {
@@ -208,9 +208,9 @@ func (b *Bitcoin) buildTransaction(tx *TxHash) []*transaction.Transaction {
 			Status:      transaction.TransactionStatusSuccess,
 		}
 
-		fromAddresses := b.transactionSource(trans)
+		fromAddress := b.transactionSource(trans)
 
-		trans.FromAddresses = fromAddresses
+		trans.FromAddress = fromAddress
 
 		transactions = append(transactions, trans)
 	}

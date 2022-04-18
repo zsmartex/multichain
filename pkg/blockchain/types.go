@@ -6,23 +6,20 @@ import (
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
-type BlockchainSettings struct {
-	Currencies           []*BlockchainSettingsCurrency
+type Currency struct {
+	ID       string
+	Subunits int32 // 8 -> 18
+	Options  map[string]interface{}
+}
+
+type Settings struct {
+	Currencies           []*Currency
 	WhitelistedAddresses []string
-}
-
-type BlockchainSettingsCurrency struct {
-	ID         string
-	BaseFactor int32 // 8 -> 18
-	Options    map[string]interface{}
-}
-
-type BlockchainConfig struct {
-	URI string
+	URI                  string
 }
 
 type Blockchain interface {
-	Configure(settings *BlockchainSettings)
+	Configure(settings *Settings) error
 	GetLatestBlockNumber() (int64, error)
 	GetBlockByHash(hash string) (*block.Block, error)
 	GetBlockByNumber(block_number int64) (*block.Block, error)
