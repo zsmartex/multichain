@@ -27,7 +27,7 @@ type Wallet interface {
 	Configure(settings *Setting) error
 
 	// Create new address from server
-	CreateAddress(secret string) (address string, err error)
+	CreateAddress() (address string, secret string, err error)
 
 	// Create a transaction and send it to the server
 	CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error)

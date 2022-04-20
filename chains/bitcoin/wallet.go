@@ -10,12 +10,13 @@ import (
 	"github.com/volatiletech/null/v9"
 	"github.com/zsmartex/multichain/pkg/blockchain"
 	"github.com/zsmartex/multichain/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/utils"
 	"github.com/zsmartex/multichain/pkg/wallet"
 )
 
 type Wallet struct {
-	currency *blockchain.Currency
 	client   *resty.Client
+	currency *blockchain.Currency
 	wallet   *wallet.SettingWallet
 }
 
@@ -76,10 +77,12 @@ func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 	return nil
 }
 
-func (w *Wallet) CreateAddress(secret string) (address string, err error) {
+func (w *Wallet) CreateAddress() (address, secret string, err error) {
+	secret = utils.RandomString(32)
+
 	err = w.jsonRPC(&address, "getnewaddress", secret)
 
-	return address, err
+	return
 }
 
 func (w *Wallet) CreateTransaction(trans *transaction.Transaction) (transaction *transaction.Transaction, err error) {

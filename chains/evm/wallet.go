@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,20 +17,19 @@ import (
 	"github.com/volatiletech/null/v9"
 	"github.com/zsmartex/multichain/pkg/blockchain"
 	"github.com/zsmartex/multichain/pkg/transaction"
+	"github.com/zsmartex/multichain/pkg/utils"
 	"github.com/zsmartex/multichain/pkg/wallet"
 )
 
 type Wallet struct {
-	native_currency *blockchain.Currency
-	currency        *blockchain.Currency
-	client          *resty.Client
-	wallet          *wallet.SettingWallet
+	client   *resty.Client
+	currency *blockchain.Currency  // selected currency for this wallet
+	wallet   *wallet.SettingWallet // selected wallet for this currency
 }
 
 func NewWallet(currency *blockchain.Currency) wallet.Wallet {
 	return &Wallet{
-		native_currency: currency,
-		client:          resty.New(),
+		client: resty.New(),
 	}
 }
 
@@ -84,14 +84,16 @@ func (w *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 	return nil
 }
 
-func (w *Wallet) CreateAddress(secret string) (address string, err error) {
+func (w *Wallet) CreateAddress() (address, secret string, err error) {
+	secret = utils.RandomString(32)
+
 	err = w.jsonRPC(&address, "personal_newAccount", secret)
 
 	return
 }
 
-func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spread []interface{}, deposit_currency string) ([]*transaction.Transaction, error) {
-	if w.currency.Options["erc20_contract_address"] == nil {
+func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spread []interface{}, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
+	if deposit_currency.Options["erc20_contract_address"] == nil {
 		return []*transaction.Transaction{}, nil
 	}
 
@@ -101,12 +103,15 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 
 	gas_price, err := w.calculate_gas_price(trans.Options["gas_rate"].(wallet.GasPriceRate))
 	if err != nil {
-		return []*transaction.Transaction{}, err
+		return nil, err
 	}
 
-	gas_limit := trans.Options["gas_limit"].(int64)
+	gas_limit, err := strconv.ParseInt(trans.Options["gas_limit"].(string), 10, 64)
+	if err != nil {
+		return nil, err
+	}
 
-	fees := decimal.NewFromBigInt(big.NewInt(gas_limit*gas_price), -w.currency.Subunits)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(gas_limit)*gas_price), -w.currency.Subunits)
 
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spread))))
 
