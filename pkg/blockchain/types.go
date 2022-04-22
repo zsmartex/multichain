@@ -9,7 +9,7 @@ import (
 type Currency struct {
 	ID         string
 	BaseFactor int32 // 8 -> 18
-	Options    map[string]interface{}
+	Options    map[string]string
 }
 
 type Settings struct {

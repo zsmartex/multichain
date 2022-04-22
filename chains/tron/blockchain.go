@@ -94,9 +94,9 @@ func (b *Blockchain) Configure(settings *blockchain.Settings) error {
 	b.currencies = settings.Currencies
 
 	for _, c := range settings.Currencies {
-		if c.Options["trc10_asset_id"] != nil {
+		if len(c.Options["trc10_asset_id"]) > 0 {
 			b.trc10_contracts = append(b.trc10_contracts, c)
-		} else if c.Options["trc20_asset_id"] != nil {
+		} else if len(c.Options["trc20_asset_id"]) > 0 {
 			b.trc20_contracts = append(b.trc20_contracts, c)
 		} else {
 			b.currency = c
@@ -426,9 +426,9 @@ func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (de
 		return decimal.Zero, errors.New("currency not found")
 	}
 
-	if currency.Options["trc10_asset_id"] != nil {
+	if len(currency.Options["trc10_asset_id"]) > 0 {
 		return b.loadTrc10Balance(address, currency)
-	} else if currency.Options["trc20_contract_address"] != nil {
+	} else if len(currency.Options["trc20_contract_address"]) > 0 {
 		return b.loadTrc20Balance(address, currency)
 	} else {
 		return b.loadTrxBalance(address)
@@ -483,7 +483,7 @@ func (b *Blockchain) loadTrc20Balance(address string, currency *blockchain.Curre
 		return decimal.Zero, err
 	}
 
-	contract_address, err := concerns.DecodeAddress(currency.Options["trc20_contract_address"].(string))
+	contract_address, err := concerns.DecodeAddress(currency.Options["trc20_contract_address"])
 	if err != nil {
 		return decimal.Zero, err
 	}

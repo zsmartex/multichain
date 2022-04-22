@@ -93,7 +93,7 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 }
 
 func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spread []interface{}, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
-	if deposit_currency.Options["erc20_contract_address"] == nil {
+	if len(deposit_currency.Options["erc20_contract_address"]) == 0 {
 		return []*transaction.Transaction{}, nil
 	}
 
@@ -101,23 +101,23 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 		return []*transaction.Transaction{}, nil
 	}
 
-	gas_price, err := w.calculate_gas_price(trans.Options["gas_rate"].(wallet.GasPriceRate))
+	gas_price, err := w.calculate_gas_price(wallet.GasPriceRate(trans.Options["gas_rate"]))
 	if err != nil {
 		return nil, err
 	}
 
-	gas_limit, err := strconv.ParseInt(trans.Options["gas_limit"].(string), 10, 64)
+	gas_limit, err := strconv.ParseUint(trans.Options["gas_limit"], 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	fees := decimal.NewFromBigInt(big.NewInt(int64(gas_limit)*gas_price), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(gas_limit*gas_price)), -w.currency.BaseFactor)
 
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spread))))
 
 	trans.Amount = amount
-	trans.Options["gas_limit"] = gas_limit
-	trans.Options["gas_price"] = gas_price
+	trans.Options["gas_limit"] = string(gas_limit)
+	trans.Options["gas_price"] = string(gas_price)
 
 	transactions := make([]*transaction.Transaction, 0)
 
@@ -132,7 +132,7 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 }
 
 func (w *Wallet) CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error) {
-	if w.currency.Options["erc20_contract_address"] != nil {
+	if len(w.currency.Options["erc20_contract_address"]) > 0 {
 		return w.createErc20Transaction(transaction)
 	} else {
 		return w.createEvmTransaction(transaction)
@@ -140,18 +140,25 @@ func (w *Wallet) CreateTransaction(transaction *transaction.Transaction) (*trans
 }
 
 func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *transaction.Transaction, err error) {
-	var gas_price int64
+	var gas_price uint64
+	var gas_limit uint64
 
-	if transaction.Options["gas_price"] == nil {
-		gas_price, err = w.calculate_gas_price(transaction.Options["gas_rate"].(wallet.GasPriceRate))
+	if len(transaction.Options["gas_price"]) == 0 {
+		gas_price, err = w.calculate_gas_price(wallet.GasPriceRate(transaction.Options["gas_rate"]))
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		gas_price = transaction.Options["gas_price"].(int64)
+		gas_price, err = strconv.ParseUint(transaction.Options["gas_price"], 10, 64)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	gas_limit := transaction.Options["gas_limit"].(uint64)
+	gas_limit, err = strconv.ParseUint(transaction.Options["gas_limit"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
 
 	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
 	amount := transaction.Amount.Mul(sub_units)
@@ -162,7 +169,7 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 		"to":       transaction.ToAddress,
 		"value":    hexutil.EncodeBig(amount.BigInt()),
 		"gas":      hexutil.EncodeUint64(gas_limit),
-		"gasPrice": hexutil.EncodeUint64(uint64(gas_price)),
+		"gasPrice": hexutil.EncodeUint64(gas_price),
 	}, w.wallet.Secret)
 	if err != nil {
 		return nil, err
@@ -174,12 +181,17 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 }
 
 func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*transaction.Transaction, error) {
-	contract_address := w.currency.Options["erc20_contract_address"].(string)
-	gas_price, err := w.calculate_gas_price(transaction.Options["gas_rate"].(wallet.GasPriceRate))
+	contract_address := w.currency.Options["erc20_contract_address"]
+
+	gas_price, err := w.calculate_gas_price(wallet.GasPriceRate(transaction.Options["gas_rate"]))
 	if err != nil {
 		return nil, err
 	}
-	gas_limit := transaction.Options["gas_limit"].(uint64)
+
+	gas_limit, err := strconv.ParseUint(transaction.Options["gas_limit"], 10, 64)
+	if err != nil {
+		return nil, err
+	}
 
 	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
 	amount := transaction.Amount.Mul(sub_units)
@@ -211,7 +223,7 @@ func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*
 	return transaction, nil
 }
 
-func (w *Wallet) calculate_gas_price(gas_rate wallet.GasPriceRate) (gas_price int64, err error) {
+func (w *Wallet) calculate_gas_price(gas_rate wallet.GasPriceRate) (gas_price uint64, err error) {
 	var result string
 	err = w.jsonRPC(&result, "eth_gasPrice")
 	if err != nil {
@@ -229,11 +241,11 @@ func (w *Wallet) calculate_gas_price(gas_rate wallet.GasPriceRate) (gas_price in
 	var gp uint64
 	gp, err = hexutil.DecodeUint64(result)
 
-	return int64(float64(gp) * rate), err
+	return (gp * uint64(rate)), err
 }
 
 func (w *Wallet) LoadBalance() (balance decimal.Decimal, err error) {
-	if w.currency.Options["erc20_contract_address"] != nil {
+	if len(w.currency.Options["erc20_contract_address"]) > 0 {
 		return w.loadBalanceEvmBalance(w.wallet.Address)
 	} else {
 		return w.loadBalanceErc20Balance(w.wallet.Address)
@@ -247,7 +259,7 @@ func (w *Wallet) loadBalanceEvmBalance(address string) (balance decimal.Decimal,
 }
 
 func (w *Wallet) loadBalanceErc20Balance(address string) (balance decimal.Decimal, err error) {
-	contract_address := w.currency.Options["erc20_contract_address"].(string)
+	contract_address := w.currency.Options["erc20_contract_address"]
 
 	abi, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {

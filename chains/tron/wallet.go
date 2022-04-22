@@ -81,7 +81,7 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 }
 
 func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spread []interface{}, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
-	if deposit_currency.Options["trc10_asset_id"] == nil && deposit_currency.Options["trc20_contract_address"] == nil {
+	if len(deposit_currency.Options["trc10_asset_id"]) == 0 && len(deposit_currency.Options["trc20_contract_address"]) == 0 {
 		return []*transaction.Transaction{}, nil
 	}
 
@@ -89,7 +89,7 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 		return []*transaction.Transaction{}, nil
 	}
 
-	fee_limit, err := strconv.ParseInt(trans.Options["fee_limit"].(string), 10, 64)
+	fee_limit, err := strconv.ParseInt(trans.Options["fee_limit"], 10, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +111,9 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 }
 
 func (w *Wallet) CreateTransaction(tx *transaction.Transaction) (*transaction.Transaction, error) {
-	if w.currency.Options["trc20_contract_address"] != nil {
+	if len(w.currency.Options["trc20_contract_address"]) > 0 {
 		return w.createTrc20Transaction(tx)
-	} else if w.currency.Options["trc10_asset_id"] != nil {
+	} else if len(w.currency.Options["trc10_asset_id"]) > 0 {
 		return w.createTrc10Transaction(tx)
 	} else {
 		return w.createTrxTransaction(tx)
@@ -164,7 +164,7 @@ func (w *Wallet) createTrc10Transaction(tx *transaction.Transaction) (*transacti
 	if err := w.jsonRPC(&resp, "wallet/easytransferassetbyprivate", map[string]interface{}{
 		"privateKey": w.wallet.Secret,
 		"toAddress":  to_address,
-		"assetId":    w.currency.Options["trc10_asset_id"].(string),
+		"assetId":    w.currency.Options["trc10_asset_id"],
 		"amount":     amount,
 	}); err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (w *Wallet) signTransaction(tx *transaction.Transaction) (map[string]interf
 }
 
 func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMessage, error) {
-	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"].(string))
+	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"])
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMess
 		"contract_address":  contract_address,
 		"function_selector": "transfer(address,uint256)",
 		"parameter":         xstrings.RightJustify(owner_address[2:], 64, "0") + xstrings.RightJustify(tx.Amount.Mul(sub_units).String(), 64, "0"),
-		"fee_limit":         w.currency.Options["fee_limit"].(string),
+		"fee_limit":         w.currency.Options["fee_limit"],
 		"owner_address":     owner_address,
 	}); err != nil {
 		return nil, err
