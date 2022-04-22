@@ -30,7 +30,9 @@ type Blockchain struct {
 }
 
 func NewBlockchain() blockchain.Blockchain {
-	return &Blockchain{}
+	return &Blockchain{
+		contracts: make([]*blockchain.Currency, 0),
+	}
 }
 
 func (b *Blockchain) Configure(settings *blockchain.Settings) error {
