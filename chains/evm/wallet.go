@@ -111,7 +111,7 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 		return nil, err
 	}
 
-	fees := decimal.NewFromBigInt(big.NewInt(int64(gas_limit)*gas_price), -w.currency.Subunits)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(gas_limit)*gas_price), -w.currency.BaseFactor)
 
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spread))))
 
@@ -153,8 +153,8 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 
 	gas_limit := transaction.Options["gas_limit"].(uint64)
 
-	base_factor := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
-	amount := transaction.Amount.Mul(base_factor)
+	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
+	amount := transaction.Amount.Mul(sub_units)
 
 	var txid string
 	err = w.jsonRPC(&txid, "personal_sendTransaction", map[string]string{
@@ -181,8 +181,8 @@ func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*
 	}
 	gas_limit := transaction.Options["gas_limit"].(uint64)
 
-	base_factor := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
-	amount := transaction.Amount.Mul(base_factor)
+	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
+	amount := transaction.Amount.Mul(sub_units)
 
 	abi, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {
@@ -270,5 +270,5 @@ func (w *Wallet) loadBalanceErc20Balance(address string) (balance decimal.Decima
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(b, -w.currency.Subunits), nil
+	return decimal.NewFromBigInt(b, -w.currency.BaseFactor), nil
 }

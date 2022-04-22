@@ -7,9 +7,9 @@ import (
 )
 
 type Currency struct {
-	ID       string
-	Subunits int32 // 8 -> 18
-	Options  map[string]interface{}
+	ID         string
+	BaseFactor int32 // 8 -> 18
+	Options    map[string]interface{}
 }
 
 type Settings struct {

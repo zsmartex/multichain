@@ -120,7 +120,7 @@ func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (de
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(amount, -b.currency.Subunits), nil
+	return decimal.NewFromBigInt(amount, -b.currency.BaseFactor), nil
 }
 
 func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
@@ -150,7 +150,7 @@ func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Curren
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.Subunits), nil
+	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.BaseFactor), nil
 }
 
 func (b *Blockchain) buildTransaction(tx *types.Transaction) ([]*transaction.Transaction, error) {
@@ -172,8 +172,8 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 		return nil, err
 	}
 
-	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.Subunits)
-	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.Subunits)
+	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.BaseFactor)
+	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.BaseFactor)
 	fee := cost.Sub(amount)
 
 	return []*transaction.Transaction{
@@ -195,7 +195,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 		return b.buildInvalidErc20Transaction(tx, receipt)
 	}
 
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
 
 	transactions := make([]*transaction.Transaction, 0)
 	for _, l := range receipt.Logs {
@@ -234,7 +234,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 }
 
 func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
 
 	transactions := make([]*transaction.Transaction, 0)
 
