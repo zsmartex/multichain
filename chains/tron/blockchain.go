@@ -507,7 +507,7 @@ func (b *Blockchain) loadTrc20Balance(address string, currency *blockchain.Curre
 	return decimal.NewFromBigInt(bi, -currency.BaseFactor), nil
 }
 
-func (b *Blockchain) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(transaction_hash string) (*transaction.Transaction, error) {
 	var resp *Transaction
 	if err := b.jsonRPC(&resp, "wallet/gettransactionbyid ", map[string]interface{}{
 		"value": transaction_hash,
@@ -515,5 +515,10 @@ func (b *Blockchain) GetTransaction(transaction_hash string) ([]*transaction.Tra
 		return nil, err
 	}
 
-	return b.buildTransaction(resp)
+	ts, err := b.buildTransaction(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return ts[0], err
 }

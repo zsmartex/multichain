@@ -156,13 +156,76 @@ func (b *Blockchain) GetBalanceOfAddress(address string, _currency_id string) (d
 	return decimal.Zero, errors.New("unavailable address balance")
 }
 
-func (b *Blockchain) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(transaction_hash string) (tx *transaction.Transaction, err error) {
 	var resp *TxHash
 	if err := b.jsonRPC(&resp, "getrawtransaction", transaction_hash, 1); err != nil {
 		return nil, err
 	}
 
-	return b.buildTransaction(resp), nil
+	for _, v := range b.buildVOut(resp.VOut) {
+		fee, err := b.calculateFee(resp)
+		if err != nil {
+			return nil, err
+		}
+
+		tx = &transaction.Transaction{
+			TxHash:      null.StringFrom(resp.TxID),
+			ToAddress:   v.ScriptPubKey.Addresses[0],
+			Currency:    b.currency.ID,
+			CurrencyFee: b.currency.ID,
+			Fee:         fee,
+			Amount:      v.Value,
+			Status:      transaction.TransactionStatusSuccess,
+		}
+	}
+
+	return
+}
+
+func (b *Blockchain) calculateFee(tx *TxHash) (decimal.Decimal, error) {
+	vins := decimal.Zero
+	vouts := decimal.Zero
+	for _, v := range tx.Vin {
+		vin := v.TxID
+		vin_id := v.VOut
+
+		if len(vin) == 0 {
+			continue
+		}
+
+		var resp *TxHash
+		if err := b.jsonRPC(&resp, "getrawtransaction", vin, 1); err != nil {
+			return decimal.Zero, err
+		}
+		if len(resp.VOut) == 0 {
+			continue
+		}
+
+		for _, vout := range resp.VOut {
+			if vout.N != vin_id {
+				continue
+			}
+
+			vins.Add(vout.Value)
+		}
+	}
+
+	for _, vout := range tx.VOut {
+		vouts.Add(vout.Value)
+	}
+
+	return vins.Sub(vouts), nil
+}
+
+func (b *Blockchain) buildVOut(vout []*VOut) []*VOut {
+	nvout := make([]*VOut, 0)
+	for _, v := range vout {
+		if v.Value.IsPositive() && v.ScriptPubKey.Addresses != nil {
+			nvout = append(nvout, v)
+		}
+	}
+
+	return nvout
 }
 
 func (b *Blockchain) transactionSource(transaction *transaction.Transaction) (address string) {
