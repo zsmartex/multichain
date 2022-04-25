@@ -5,12 +5,13 @@ import (
 	"github.com/volatiletech/null/v9"
 )
 
-type TransactionStatus string
+type Status string
 
 const (
-	TransactionStatusPending TransactionStatus = "pending"
-	TransactionStatusSuccess TransactionStatus = "success"
-	TransactionStatusFailed  TransactionStatus = "failed"
+	StatusPending Status = "pending"
+	StatusSuccess Status = "success"
+	StatusFailed  Status = "failed"
+	StatusSkipped Status = "skipped"
 )
 
 type Transaction struct {
@@ -22,7 +23,7 @@ type Transaction struct {
 	Amount      decimal.Decimal
 	BlockNumber int64
 	TxHash      null.String
-	Status      TransactionStatus
+	Status      Status
 	Options     map[string]string
 }
 

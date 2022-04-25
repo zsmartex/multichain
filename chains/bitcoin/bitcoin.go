@@ -175,7 +175,7 @@ func (b *Blockchain) GetTransaction(transaction_hash string) (tx *transaction.Tr
 			CurrencyFee: b.currency.ID,
 			Fee:         fee,
 			Amount:      v.Value,
-			Status:      transaction.TransactionStatusSuccess,
+			Status:      transaction.StatusSuccess,
 		}
 	}
 
@@ -268,7 +268,7 @@ func (b *Blockchain) buildTransaction(tx *TxHash) []*transaction.Transaction {
 			ToAddress:   entry.ScriptPubKey.Addresses[0],
 			Amount:      entry.Value,
 			TxHash:      null.StringFrom(tx.TxID),
-			Status:      transaction.TransactionStatusSuccess,
+			Status:      transaction.StatusSuccess,
 		}
 
 		fromAddress := b.transactionSource(trans)

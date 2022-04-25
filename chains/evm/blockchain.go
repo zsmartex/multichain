@@ -196,7 +196,7 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 }
 
 func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	if b.transactionStatus(receipt) == transaction.TransactionStatusFailed && len(receipt.Logs) == 0 {
+	if b.transactionStatus(receipt) == transaction.StatusFailed && len(receipt.Logs) == 0 {
 		return b.buildInvalidErc20Transaction(tx, receipt)
 	}
 
@@ -259,13 +259,13 @@ func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt
 	return transactions, nil
 }
 
-func (b *Blockchain) transactionStatus(receiptTx *types.Receipt) transaction.TransactionStatus {
+func (b *Blockchain) transactionStatus(receiptTx *types.Receipt) transaction.Status {
 	switch receiptTx.Status {
 	case 1:
-		return transaction.TransactionStatusSuccess
+		return transaction.StatusSuccess
 	case 0:
-		return transaction.TransactionStatusFailed
+		return transaction.StatusFailed
 	default:
-		return transaction.TransactionStatusPending
+		return transaction.StatusPending
 	}
 }
