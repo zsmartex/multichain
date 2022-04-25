@@ -35,4 +35,7 @@ type Wallet interface {
 
 	// Load balance from wallet address
 	LoadBalance() (balance decimal.Decimal, err error)
+
+	// Prepare deposit collection fee for deposit
+	PrepareDepositCollection(trans *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error)
 }

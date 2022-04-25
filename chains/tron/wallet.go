@@ -80,12 +80,12 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 	return resp.Address, resp.PrivateKey, err
 }
 
-func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spread []interface{}, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
 	if len(deposit_currency.Options["trc10_asset_id"]) == 0 && len(deposit_currency.Options["trc20_contract_address"]) == 0 {
 		return []*transaction.Transaction{}, nil
 	}
 
-	if len(deposit_spread) == 0 {
+	if len(deposit_spreads) == 0 {
 		return []*transaction.Transaction{}, nil
 	}
 
@@ -95,7 +95,7 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 	}
 
 	fees := decimal.NewFromBigInt(big.NewInt(fee_limit), -w.currency.BaseFactor)
-	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spread))))
+	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
 
 	trans.Amount = amount
 
