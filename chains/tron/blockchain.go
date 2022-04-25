@@ -269,7 +269,7 @@ func (b *Blockchain) buildTrxTransaction(txn *Transaction) (*transaction.Transac
 		ToAddress:   to_address,
 		FromAddress: from_address,
 		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.BaseFactor),
-		Status:      transaction.StatusSuccess,
+		Status:      transaction.StatusSucceed,
 	}
 
 	return transaction, nil
@@ -309,7 +309,7 @@ func (b *Blockchain) buildTrc10Transaction(txn *Transaction) (*transaction.Trans
 		ToAddress:   to_address,
 		FromAddress: from_address,
 		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -currency.BaseFactor),
-		Status:      transaction.StatusSuccess,
+		Status:      transaction.StatusSucceed,
 	}
 
 	return transaction, nil
@@ -379,7 +379,7 @@ func (b *Blockchain) buildTrc20Transaction(txn_receipt *TransactionInfo) ([]*tra
 
 func (b *Blockchain) trc20TxnStatus(txn_receipt *TransactionInfo) transaction.Status {
 	if txn_receipt.Receipt.Result == "SUCCESS" {
-		return transaction.StatusSuccess
+		return transaction.StatusSucceed
 	} else {
 		return transaction.StatusFailed
 	}

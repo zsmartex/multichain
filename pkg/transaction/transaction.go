@@ -8,10 +8,11 @@ import (
 type Status string
 
 const (
-	StatusPending Status = "pending"
-	StatusSuccess Status = "success"
-	StatusFailed  Status = "failed"
-	StatusSkipped Status = "skipped"
+	StatusPending  Status = "pending"
+	StatusSucceed  Status = "succeed"
+	StatusFailed   Status = "failed"
+	StatusSkipped  Status = "skipped"
+	StatusRejected Status = "rejected"
 )
 
 type Transaction struct {

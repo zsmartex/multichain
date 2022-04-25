@@ -262,7 +262,7 @@ func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt
 func (b *Blockchain) transactionStatus(receiptTx *types.Receipt) transaction.Status {
 	switch receiptTx.Status {
 	case 1:
-		return transaction.StatusSuccess
+		return transaction.StatusSucceed
 	case 0:
 		return transaction.StatusFailed
 	default:

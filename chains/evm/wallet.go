@@ -116,8 +116,8 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spread))))
 
 	trans.Amount = amount
-	trans.Options["gas_limit"] = string(gas_limit)
-	trans.Options["gas_price"] = string(gas_price)
+	trans.Options["gas_limit"] = strconv.FormatUint(gas_limit, 10)
+	trans.Options["gas_price"] = strconv.FormatUint(gas_price, 10)
 
 	transactions := make([]*transaction.Transaction, 0)
 
