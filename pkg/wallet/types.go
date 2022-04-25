@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/shopspring/decimal"
 	"github.com/zsmartex/multichain/pkg/blockchain"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
@@ -31,4 +32,7 @@ type Wallet interface {
 
 	// Create a transaction and send it to the server
 	CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error)
+
+	// Load balance from wallet address
+	LoadBalance() (balance decimal.Decimal, err error)
 }

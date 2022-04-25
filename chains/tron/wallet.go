@@ -240,3 +240,99 @@ func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMess
 
 	return result.Transaction, nil
 }
+
+func (w *Wallet) LoadBalance() (decimal.Decimal, error) {
+	if len(w.currency.Options["trc20_contract_address"]) > 0 {
+		return w.loadTrc20Balance()
+	} else if len(w.currency.Options["trc10_asset_id"]) > 0 {
+		return w.loadTrc10Balance()
+	} else {
+		return w.loadTrxBalance()
+	}
+}
+
+func (w *Wallet) loadTrc20Balance() (decimal.Decimal, error) {
+	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"])
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	owner_address, err := concerns.DecodeAddress(w.wallet.Address)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	var resp *struct {
+		ConstantResult []string `json:"constant_result"`
+	}
+
+	if err := w.jsonRPC(&resp, "wallet/triggersmartcontract", map[string]string{
+		"owner_address":     owner_address,
+		"contract_address":  contract_address,
+		"function_selector": "balanceOf(address)",
+		"parameter":         xstrings.RightJustify(owner_address[2:], 64, "0"),
+	}); err != nil {
+		return decimal.Zero, err
+	}
+
+	b := &big.Int{}
+	b.SetString(resp.ConstantResult[0], 16)
+
+	return decimal.NewFromBigInt(b, -w.currency.BaseFactor), nil
+}
+
+func (w *Wallet) loadTrc10Balance() (decimal.Decimal, error) {
+	address_decoded, err := concerns.DecodeAddress(w.wallet.Address)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	type Result struct {
+		AssetV2 []struct {
+			Key   string `json:"key"`
+			Value decimal.Decimal
+		} `json:"assetV2"`
+	}
+
+	var result *Result
+	if err := w.jsonRPC(&result, "wallet/getbalance", map[string]interface{}{
+		"address": address_decoded,
+	}); err != nil {
+		return decimal.Zero, err
+	}
+
+	if result.AssetV2 == nil {
+		return decimal.Zero, nil
+	}
+
+	balance := decimal.Zero
+
+	for _, asset := range result.AssetV2 {
+		if asset.Key == w.currency.Options["trc10_asset_id"] {
+			balance = asset.Value
+			break
+		}
+	}
+
+	return balance, nil
+}
+
+func (w *Wallet) loadTrxBalance() (decimal.Decimal, error) {
+	address_decoded, err := concerns.DecodeAddress(w.wallet.Address)
+	if err != nil {
+		return decimal.Zero, err
+	}
+
+	type Result struct {
+		Balance decimal.Decimal `json:"balance"`
+	}
+
+	var result *Result
+	if err := w.jsonRPC(&result, "wallet/getbalance", map[string]interface{}{
+		"address": address_decoded,
+	}); err != nil {
+		return decimal.Zero, err
+	}
+
+	return result.Balance, nil
+}
