@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/huandu/xstrings"
@@ -17,6 +16,14 @@ import (
 	"github.com/zsmartex/multichain/pkg/transaction"
 	"github.com/zsmartex/multichain/pkg/wallet"
 )
+
+type options struct {
+	FeeLimit int64
+}
+
+var default_fee = options{
+	FeeLimit: 1000000,
+}
 
 type Wallet struct {
 	client   *resty.Client
@@ -80,8 +87,8 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 	return resp.Address, resp.PrivateKey, err
 }
 
-func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
-	if len(deposit_currency.Options["trc10_asset_id"]) == 0 && len(deposit_currency.Options["trc20_contract_address"]) == 0 {
+func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
+	if deposit_currency.Options["trc10_asset_id"] == nil && deposit_currency.Options["trc20_contract_address"] == nil {
 		return []*transaction.Transaction{}, nil
 	}
 
@@ -89,18 +96,15 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 		return []*transaction.Transaction{}, nil
 	}
 
-	fee_limit, err := strconv.ParseInt(trans.Options["fee_limit"], 10, 64)
-	if err != nil {
-		return nil, err
-	}
+	options := w.merege_options(default_fee, deposit_currency.Options)
 
-	fees := decimal.NewFromBigInt(big.NewInt(fee_limit), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.BaseFactor)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
 
-	trans.Amount = amount
+	deposit_transaction.Amount = amount
 
 	transactions := make([]*transaction.Transaction, 0)
-	t, err := w.createTrxTransaction(trans)
+	t, err := w.createTrxTransaction(deposit_transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +115,9 @@ func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposi
 }
 
 func (w *Wallet) CreateTransaction(tx *transaction.Transaction) (*transaction.Transaction, error) {
-	if len(w.currency.Options["trc20_contract_address"]) > 0 {
+	if w.currency.Options["trc20_contract_address"] != nil {
 		return w.createTrc20Transaction(tx)
-	} else if len(w.currency.Options["trc10_asset_id"]) > 0 {
+	} else if w.currency.Options["trc10_asset_id"] != nil {
 		return w.createTrc10Transaction(tx)
 	} else {
 		return w.createTrxTransaction(tx)
@@ -176,7 +180,9 @@ func (w *Wallet) createTrc10Transaction(tx *transaction.Transaction) (*transacti
 }
 
 func (w *Wallet) createTrc20Transaction(tx *transaction.Transaction) (*transaction.Transaction, error) {
-	signed_txn, err := w.signTransaction(tx)
+	options := w.merege_options(default_fee, w.currency.Options)
+
+	signed_txn, err := w.signTransaction(tx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -193,8 +199,8 @@ func (w *Wallet) createTrc20Transaction(tx *transaction.Transaction) (*transacti
 	return tx, nil
 }
 
-func (w *Wallet) signTransaction(tx *transaction.Transaction) (map[string]interface{}, error) {
-	txn, err := w.triggerSmartContract(tx)
+func (w *Wallet) signTransaction(tx *transaction.Transaction, options options) (map[string]interface{}, error) {
+	txn, err := w.triggerSmartContract(tx, options)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +216,8 @@ func (w *Wallet) signTransaction(tx *transaction.Transaction) (map[string]interf
 	return resp, nil
 }
 
-func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMessage, error) {
-	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"])
+func (w *Wallet) triggerSmartContract(tx *transaction.Transaction, options options) (json.RawMessage, error) {
+	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"].(string))
 	if err != nil {
 		return nil, err
 	}
@@ -228,11 +234,11 @@ func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMess
 	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
 
 	var result *respResult
-	if err := w.jsonRPC(&result, "wallet/triggersmartcontract", map[string]string{
+	if err := w.jsonRPC(&result, "wallet/triggersmartcontract", map[string]interface{}{
 		"contract_address":  contract_address,
 		"function_selector": "transfer(address,uint256)",
 		"parameter":         xstrings.RightJustify(owner_address[2:], 64, "0") + xstrings.RightJustify(tx.Amount.Mul(sub_units).String(), 64, "0"),
-		"fee_limit":         w.currency.Options["fee_limit"],
+		"fee_limit":         options.FeeLimit,
 		"owner_address":     owner_address,
 	}); err != nil {
 		return nil, err
@@ -242,9 +248,9 @@ func (w *Wallet) triggerSmartContract(tx *transaction.Transaction) (json.RawMess
 }
 
 func (w *Wallet) LoadBalance() (decimal.Decimal, error) {
-	if len(w.currency.Options["trc20_contract_address"]) > 0 {
+	if w.currency.Options["trc20_contract_address"] != nil {
 		return w.loadTrc20Balance()
-	} else if len(w.currency.Options["trc10_asset_id"]) > 0 {
+	} else if w.currency.Options["trc10_asset_id"] != nil {
 		return w.loadTrc10Balance()
 	} else {
 		return w.loadTrxBalance()
@@ -252,7 +258,7 @@ func (w *Wallet) LoadBalance() (decimal.Decimal, error) {
 }
 
 func (w *Wallet) loadTrc20Balance() (decimal.Decimal, error) {
-	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"])
+	contract_address, err := concerns.DecodeAddress(w.currency.Options["trc20_contract_address"].(string))
 	if err != nil {
 		return decimal.Zero, err
 	}
@@ -335,4 +341,18 @@ func (w *Wallet) loadTrxBalance() (decimal.Decimal, error) {
 	}
 
 	return result.Balance, nil
+}
+
+func (w *Wallet) merege_options(first options, step map[string]interface{}) options {
+	opts := first
+
+	if step == nil {
+		return opts
+	}
+
+	if step["fee_limit"] != nil {
+		opts.FeeLimit = step["fee_limit"].(int64)
+	}
+
+	return opts
 }

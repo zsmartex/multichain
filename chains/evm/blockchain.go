@@ -46,7 +46,7 @@ func (b *Blockchain) Configure(settings *blockchain.Settings) error {
 	b.settings = settings
 
 	for _, c := range settings.Currencies {
-		if len(c.Options["erc20_contract_address"]) > 0 {
+		if len(c.Options["erc20_contract_address"].(string)) > 0 {
 			b.contracts = append(b.contracts, c)
 		} else {
 			b.currency = c
@@ -129,8 +129,7 @@ func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (de
 }
 
 func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
-	contract_address_str := currency.Options["erc20_contract_address"]
-	contract_address := common.HexToAddress(contract_address_str)
+	contract_address := common.HexToAddress(currency.Options["erc20_contract_address"].(string))
 
 	block_number, err := b.GetLatestBlockNumber()
 	if err != nil {

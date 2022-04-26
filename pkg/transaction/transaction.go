@@ -25,7 +25,7 @@ type Transaction struct {
 	BlockNumber int64
 	TxHash      null.String
 	Status      Status
-	Options     map[string]string
+	Options     map[string]interface{}
 }
 
 func New(currency string, fromAddress, toAddress string, amount decimal.Decimal, txHash null.String) Transaction {
