@@ -1,6 +1,12 @@
 package transaction
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"reflect"
+
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
 )
@@ -16,24 +22,36 @@ const (
 )
 
 type Transaction struct {
-	Currency    string
-	CurrencyFee string
-	FromAddress string
-	ToAddress   string
-	Fee         decimal.Decimal
-	Amount      decimal.Decimal
-	BlockNumber int64
-	TxHash      null.String
-	Status      Status
-	Options     map[string]interface{}
+	Currency    string                 `json:"currency"`
+	CurrencyFee string                 `json:"currency_fee"`
+	FromAddress string                 `json:"from_address"`
+	ToAddress   string                 `json:"to_address"`
+	Fee         decimal.Decimal        `json:"fee"`
+	Amount      decimal.Decimal        `json:"amount"`
+	BlockNumber int64                  `json:"block_number"`
+	TxHash      null.String            `json:"tx_hash"`
+	Status      Status                 `json:"status"`
+	Options     map[string]interface{} `json:"options"`
 }
 
-func New(currency string, fromAddress, toAddress string, amount decimal.Decimal, txHash null.String) Transaction {
-	return Transaction{
-		Currency:    currency,
-		FromAddress: fromAddress,
-		ToAddress:   toAddress,
-		Amount:      amount,
-		TxHash:      txHash,
+// Scan scan value into Jsonb, implements sql.Scanner interface
+func (e *Transaction) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
 	}
+
+	result := Transaction{}
+	err := json.Unmarshal(bytes, &result)
+	*e = Transaction(result)
+	return err
+}
+
+// Value return json value, implement driver.Valuer interface
+func (t Transaction) Value() (driver.Value, error) {
+	if reflect.DeepEqual(Transaction{}, t) {
+		return []byte{}, nil
+	}
+
+	return json.Marshal(t)
 }
