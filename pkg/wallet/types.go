@@ -37,5 +37,6 @@ type Wallet interface {
 	LoadBalance() (balance decimal.Decimal, err error)
 
 	// Prepare deposit collection fee for deposit
-	PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error)
+	// WARN: this func don't execute create transaction just return transaction was built
+	PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error)
 }

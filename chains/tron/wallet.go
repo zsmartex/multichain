@@ -87,13 +87,14 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 	return resp.Address, resp.PrivateKey, err
 }
 
-func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) ([]*transaction.Transaction, error) {
+// this func don't execute create transaction just return transaction was built
+func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
 	if deposit_currency.Options["trc10_asset_id"] == nil && deposit_currency.Options["trc20_contract_address"] == nil {
-		return []*transaction.Transaction{}, nil
+		return nil, nil
 	}
 
 	if len(deposit_spreads) == 0 {
-		return []*transaction.Transaction{}, nil
+		return nil, nil
 	}
 
 	options := w.merege_options(default_fee, deposit_currency.Options)
@@ -103,15 +104,7 @@ func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Trans
 
 	deposit_transaction.Amount = amount
 
-	transactions := make([]*transaction.Transaction, 0)
-	t, err := w.createTrxTransaction(deposit_transaction)
-	if err != nil {
-		return nil, err
-	}
-
-	transactions = append(transactions, t)
-
-	return transactions, nil
+	return deposit_transaction, nil
 }
 
 func (w *Wallet) CreateTransaction(tx *transaction.Transaction) (*transaction.Transaction, error) {
