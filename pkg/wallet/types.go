@@ -38,5 +38,5 @@ type Wallet interface {
 
 	// Prepare deposit collection fee for deposit
 	// WARN: this func don't execute create transaction just return transaction was built
-	PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error)
+	PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error)
 }
