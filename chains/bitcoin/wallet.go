@@ -20,10 +20,9 @@ type Wallet struct {
 	wallet   *wallet.SettingWallet
 }
 
-func NewWallet(currency *blockchain.Currency) wallet.Wallet {
+func NewWallet() wallet.Wallet {
 	return &Wallet{
-		currency: currency,
-		client:   resty.New(),
+		client: resty.New(),
 	}
 }
 

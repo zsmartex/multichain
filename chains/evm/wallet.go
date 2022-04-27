@@ -42,7 +42,7 @@ type Wallet struct {
 	wallet   *wallet.SettingWallet // selected wallet for this currency
 }
 
-func NewWallet(currency *blockchain.Currency) wallet.Wallet {
+func NewWallet() wallet.Wallet {
 	return &Wallet{
 		client: resty.New(),
 	}
