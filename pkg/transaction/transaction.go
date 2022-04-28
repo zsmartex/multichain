@@ -22,16 +22,16 @@ const (
 )
 
 type Transaction struct {
-	Currency    string                 `json:"currency"`
-	CurrencyFee string                 `json:"currency_fee"`
-	FromAddress string                 `json:"from_address"`
-	ToAddress   string                 `json:"to_address"`
-	Fee         decimal.Decimal        `json:"fee"`
-	Amount      decimal.Decimal        `json:"amount"`
-	BlockNumber int64                  `json:"block_number"`
-	TxHash      null.String            `json:"tx_hash"`
-	Status      Status                 `json:"status"`
-	Options     map[string]interface{} `json:"options"`
+	Currency    string                 `json:"currency,omitempty"`
+	CurrencyFee string                 `json:"currency_fee,omitempty"`
+	FromAddress string                 `json:"from_address,omitempty"`
+	ToAddress   string                 `json:"to_address,omitempty"`
+	Fee         decimal.Decimal        `json:"fee,omitempty"`
+	Amount      decimal.Decimal        `json:"amount,omitempty"`
+	BlockNumber int64                  `json:"block_number,omitempty"`
+	TxHash      null.String            `json:"tx_hash,omitempty"`
+	Status      Status                 `json:"status,omitempty"`
+	Options     map[string]interface{} `json:"options,omitempty"`
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
