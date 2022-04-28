@@ -108,7 +108,7 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 }
 
 // this func don't execute create transaction just return transaction was built
-func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
 	if len(deposit_currency.Options["erc20_contract_address"].(string)) == 0 {
 		return nil, nil
 	}
@@ -120,7 +120,22 @@ func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Trans
 		return nil, err
 	}
 
-	deposit_transaction.Amount = decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gas_price)), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gas_price)), -w.currency.BaseFactor)
+	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
+
+	deposit_transaction.Amount = amount
+
+	if deposit_transaction.Options == nil {
+		deposit_transaction.Options = make(map[string]interface{})
+	}
+
+	if options.GasLimit != 0 {
+		deposit_transaction.Options["gas_limit"] = options.GasLimit
+	}
+
+	if options.GasPrice != 0 {
+		deposit_transaction.Options["gas_price"] = options.GasPrice
+	}
 
 	return deposit_transaction, nil
 }

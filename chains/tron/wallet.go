@@ -88,14 +88,25 @@ func (w *Wallet) CreateAddress() (address, secret string, err error) {
 }
 
 // this func don't execute create transaction just return transaction was built
-func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
 	if deposit_currency.Options["trc10_asset_id"] == nil && deposit_currency.Options["trc20_contract_address"] == nil {
 		return nil, nil
 	}
 
 	options := w.merege_options(default_fee, deposit_currency.Options)
 
-	deposit_transaction.Amount = decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.BaseFactor)
+	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
+
+	deposit_transaction.Amount = amount
+
+	if deposit_transaction.Options == nil {
+		deposit_transaction.Options = make(map[string]interface{})
+	}
+
+	if options.FeeLimit > 0 {
+		deposit_transaction.Options["fee_limit"] = options.FeeLimit
+	}
 
 	return deposit_transaction, nil
 }

@@ -105,6 +105,6 @@ func (w *Wallet) LoadBalance() (balance decimal.Decimal, err error) {
 	return
 }
 
-func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
 	return nil, errors.New("failed to prepare deposit collection due: bitcoin client are not supported")
 }
