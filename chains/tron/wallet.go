@@ -95,7 +95,7 @@ func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Trans
 
 	options := w.merege_options(default_fee, deposit_currency.Options)
 
-	fees := decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.SubUnits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
 
 	deposit_transaction.Amount = amount
@@ -127,7 +127,7 @@ func (w *Wallet) createTrxTransaction(tx *transaction.Transaction) (*transaction
 		return nil, err
 	}
 
-	amount := tx.Amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor)))))
+	amount := tx.Amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.SubUnits)))))
 
 	var resp *struct {
 		Transaction struct {
@@ -154,7 +154,7 @@ func (w *Wallet) createTrc10Transaction(tx *transaction.Transaction) (*transacti
 		return nil, err
 	}
 
-	amount := tx.Amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor)))))
+	amount := tx.Amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.SubUnits)))))
 
 	var resp *struct {
 		Transaction struct {
@@ -228,7 +228,7 @@ func (w *Wallet) triggerSmartContract(tx *transaction.Transaction, options optio
 		Transaction json.RawMessage `json:"transaction"`
 	}
 
-	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
+	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.SubUnits))))
 
 	var result *respResult
 	if err := w.jsonRPC(&result, "wallet/triggersmartcontract", map[string]interface{}{
@@ -281,7 +281,7 @@ func (w *Wallet) loadTrc20Balance() (decimal.Decimal, error) {
 	b := &big.Int{}
 	b.SetString(resp.ConstantResult[0], 16)
 
-	return decimal.NewFromBigInt(b, -w.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(b, -w.currency.SubUnits), nil
 }
 
 func (w *Wallet) loadTrc10Balance() (decimal.Decimal, error) {

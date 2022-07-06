@@ -46,7 +46,7 @@ func (b *Blockchain) Configure(settings *blockchain.Settings) error {
 	b.settings = settings
 
 	for _, c := range settings.Currencies {
-		if len(c.Options["erc20_contract_address"].(string)) > 0 {
+		if c.Options["erc20_contract_address"] != nil {
 			b.contracts = append(b.contracts, c)
 		} else {
 			b.currency = c
@@ -94,7 +94,7 @@ func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
 	}, nil
 }
 
-func (b *Blockchain) GetTransaction(txHash string) (*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(txHash string) ([]*transaction.Transaction, error) {
 	result, _, err := b.client.TransactionByHash(context.Background(), common.HexToHash(txHash))
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (b *Blockchain) GetTransaction(txHash string) (*transaction.Transaction, er
 		return nil, err
 	}
 
-	return ts[0], nil
+	return ts, nil
 }
 
 func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (decimal.Decimal, error) {
@@ -125,7 +125,7 @@ func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (de
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(amount, -b.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(amount, -b.currency.SubUnits), nil
 }
 
 func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
@@ -154,7 +154,7 @@ func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Curren
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.BaseFactor), nil
+	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.SubUnits), nil
 }
 
 func (b *Blockchain) buildTransaction(tx *types.Transaction) ([]*transaction.Transaction, error) {
@@ -163,7 +163,7 @@ func (b *Blockchain) buildTransaction(tx *types.Transaction) ([]*transaction.Tra
 		return nil, err
 	}
 
-	if receipt.Logs != nil {
+	if len(receipt.Logs) > 0 {
 		return b.buildERC20Transactions(tx, receipt)
 	} else {
 		return b.buildETHTransactions(tx, receipt)
@@ -171,22 +171,30 @@ func (b *Blockchain) buildTransaction(tx *types.Transaction) ([]*transaction.Tra
 }
 
 func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	msg, err := tx.AsMessage(types.NewEIP155Signer(tx.ChainId()), tx.GasPrice())
+	var to_address string
+
+	from_address, err := types.LatestSignerForChainID(tx.ChainId()).Sender(tx)
 	if err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
-	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.BaseFactor)
-	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.BaseFactor)
+	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.SubUnits)
+	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.SubUnits)
 	fee := cost.Sub(amount)
+	to := tx.To()
+
+	if to != nil {
+		to_address = to.Hex()
+	}
 
 	return []*transaction.Transaction{
 		{
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
 			TxHash:      null.StringFrom(tx.Hash().Hex()),
-			FromAddress: msg.From().Hex(),
-			ToAddress:   msg.To().Hex(),
+			FromAddress: from_address.Hex(),
+			ToAddress:   to_address,
 			Fee:         fee,
 			Amount:      amount,
 			Status:      b.transactionStatus(receipt),
@@ -199,13 +207,14 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 		return b.buildInvalidErc20Transaction(tx, receipt)
 	}
 
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.SubUnits)
 
 	transactions := make([]*transaction.Transaction, 0)
 	for _, l := range receipt.Logs {
 		if len(l.BlockHash.Bytes()) == 0 && l.BlockNumber == 0 {
 			continue
 		}
+
 		if len(l.Topics) == 0 || l.Topics[0].Hex() != tokenEventIdentifier {
 			continue
 		}
@@ -219,7 +228,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 		value := decimal.NewFromBigInt(i, -6)
 
 		for _, c := range b.contracts {
-			if c.Options["erc20_contract_address"] == l.Address.Hex() {
+			if strings.EqualFold(c.Options["erc20_contract_address"].(string), l.Address.Hex()) {
 				transactions = append(transactions, &transaction.Transaction{
 					Currency:    c.ID,
 					CurrencyFee: b.currency.ID,
@@ -238,7 +247,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 }
 
 func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.SubUnits)
 
 	transactions := make([]*transaction.Transaction, 0)
 

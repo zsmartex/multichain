@@ -120,7 +120,7 @@ func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Trans
 		return nil, err
 	}
 
-	fees := decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gas_price)), -w.currency.BaseFactor)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gas_price)), -w.currency.SubUnits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
 
 	deposit_transaction.Amount = amount
@@ -160,7 +160,7 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 		options.GasPrice = gp
 	}
 
-	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
+	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.SubUnits))))
 	amount := transaction.Amount.Mul(sub_units)
 
 	var txid string
@@ -193,7 +193,7 @@ func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*
 		options.GasPrice = gp
 	}
 
-	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
+	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.SubUnits))))
 	amount := transaction.Amount.Mul(sub_units)
 
 	abi, err := abi.JSON(strings.NewReader(abiDefinition))
@@ -282,7 +282,7 @@ func (w *Wallet) loadBalanceErc20Balance(address string) (balance decimal.Decima
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(b, -w.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(b, -w.currency.SubUnits), nil
 }
 
 func (w *Wallet) merege_options(first options, step map[string]interface{}) options {

@@ -7,9 +7,9 @@ import (
 )
 
 type Currency struct {
-	ID         string
-	BaseFactor int32 // 8 -> 18
-	Options    map[string]interface{}
+	ID       string
+	SubUnits int32 // 1 -> 18
+	Options  map[string]interface{}
 }
 
 type Settings struct {
@@ -23,6 +23,6 @@ type Blockchain interface {
 	GetLatestBlockNumber() (int64, error)
 	GetBlockByHash(hash string) (*block.Block, error)
 	GetBlockByNumber(block_number int64) (*block.Block, error)
-	GetTransaction(transaction_hash string) (*transaction.Transaction, error)
+	GetTransaction(transaction_hash string) ([]*transaction.Transaction, error)
 	GetBalanceOfAddress(address string, currency_id string) (decimal.Decimal, error)
 }

@@ -268,7 +268,7 @@ func (b *Blockchain) buildTrxTransaction(txn *Transaction) (*transaction.Transac
 		TxHash:      null.StringFrom(txn.TxID),
 		ToAddress:   to_address,
 		FromAddress: from_address,
-		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.BaseFactor),
+		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.SubUnits),
 		Status:      transaction.StatusSucceed,
 	}
 
@@ -308,7 +308,7 @@ func (b *Blockchain) buildTrc10Transaction(txn *Transaction) (*transaction.Trans
 		TxHash:      null.StringFrom(txn.TxID),
 		ToAddress:   to_address,
 		FromAddress: from_address,
-		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -currency.BaseFactor),
+		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -currency.SubUnits),
 		Status:      transaction.StatusSucceed,
 	}
 
@@ -361,7 +361,7 @@ func (b *Blockchain) buildTrc20Transaction(txn_receipt *TransactionInfo) ([]*tra
 			return nil, err
 		}
 
-		amount := decimal.NewFromBigInt(big.NewInt(0), -currency.BaseFactor)
+		amount := decimal.NewFromBigInt(big.NewInt(0), -currency.SubUnits)
 
 		transactions = append(transactions, &transaction.Transaction{
 			Currency:    currency.ID,
@@ -448,7 +448,7 @@ func (b *Blockchain) loadTrxBalance(address string) (decimal.Decimal, error) {
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(big.NewInt(resp.Balance), -b.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(big.NewInt(resp.Balance), -b.currency.SubUnits), nil
 }
 
 func (b *Blockchain) loadTrc10Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
@@ -470,7 +470,7 @@ func (b *Blockchain) loadTrc10Balance(address string, currency *blockchain.Curre
 
 	for _, a := range resp.AssetV2 {
 		if a.Key == currency.Options["trc10_asset_id"] {
-			return decimal.NewFromBigInt(big.NewInt(a.Value), -currency.BaseFactor), nil
+			return decimal.NewFromBigInt(big.NewInt(a.Value), -currency.SubUnits), nil
 		}
 	}
 
@@ -504,10 +504,10 @@ func (b *Blockchain) loadTrc20Balance(address string, currency *blockchain.Curre
 	bi := new(big.Int)
 	bi.SetString(s, 16)
 
-	return decimal.NewFromBigInt(bi, -currency.BaseFactor), nil
+	return decimal.NewFromBigInt(bi, -currency.SubUnits), nil
 }
 
-func (b *Blockchain) GetTransaction(transaction_hash string) (*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(transaction_hash string) ([]*transaction.Transaction, error) {
 	var resp *Transaction
 	if err := b.jsonRPC(&resp, "wallet/gettransactionbyid ", map[string]interface{}{
 		"value": transaction_hash,
@@ -520,5 +520,5 @@ func (b *Blockchain) GetTransaction(transaction_hash string) (*transaction.Trans
 		return nil, err
 	}
 
-	return ts[0], err
+	return ts, err
 }

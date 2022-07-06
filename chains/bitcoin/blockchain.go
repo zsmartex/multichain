@@ -129,9 +129,15 @@ func (b *Blockchain) GetBlockByNumber(block_number int64) (*block.Block, error) 
 
 func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
 	var resp *Block
-	b.jsonRPC(&resp, "getblock", hash, 2)
+	if err := b.jsonRPC(&resp, "getblock", hash, 2); err != nil {
+		return nil, err
+	}
 
-	transactions := b.buildTransaction(resp.Tx[0])
+	transactions := make([]*transaction.Transaction, 0)
+	for _, tx := range resp.Tx {
+		transactions = append(transactions, b.buildTransaction(tx)...)
+	}
+
 	return &block.Block{
 		Hash:         resp.Hash,
 		Number:       resp.Height,
@@ -156,30 +162,60 @@ func (b *Blockchain) GetBalanceOfAddress(address string, _currency_id string) (d
 	return decimal.Zero, errors.New("unavailable address balance")
 }
 
-func (b *Blockchain) GetTransaction(transaction_hash string) (tx *transaction.Transaction, err error) {
+func (b *Blockchain) GetTransaction(transaction_hash string) (txs []*transaction.Transaction, err error) {
 	var resp *TxHash
 	if err := b.jsonRPC(&resp, "getrawtransaction", transaction_hash, 1); err != nil {
 		return nil, err
 	}
 
+	from_address, err := b.getFromAddress(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	txs = make([]*transaction.Transaction, 0)
 	for _, v := range b.buildVOut(resp.VOut) {
 		fee, err := b.calculateFee(resp)
 		if err != nil {
 			return nil, err
 		}
 
-		tx = &transaction.Transaction{
+		txs = append(txs, &transaction.Transaction{
 			TxHash:      null.StringFrom(resp.TxID),
+			FromAddress: from_address,
 			ToAddress:   v.ScriptPubKey.Addresses[0],
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
 			Fee:         fee,
 			Amount:      v.Value,
 			Status:      transaction.StatusSucceed,
-		}
+		})
 	}
 
 	return
+}
+
+func (b *Blockchain) getFromAddress(tx *TxHash) (string, error) {
+	var from_address string
+
+	vin := tx.Vin[0]
+
+	if len(vin.TxID) == 0 {
+		return "", errors.New("unavailable from address")
+	}
+
+	var resp *TxHash
+	if err := b.jsonRPC(&resp, "getrawtransaction", vin.TxID, 1); err != nil {
+		return "", err
+	}
+
+	tx_src := resp.VOut[0]
+	if len(tx_src.ScriptPubKey.Addresses) == 0 {
+		return "", errors.New("unavailable from address")
+	}
+
+	from_address = tx_src.ScriptPubKey.Addresses[0]
+	return from_address, nil
 }
 
 func (b *Blockchain) calculateFee(tx *TxHash) (decimal.Decimal, error) {
@@ -228,35 +264,14 @@ func (b *Blockchain) buildVOut(vout []*VOut) []*VOut {
 	return nvout
 }
 
-func (b *Blockchain) transactionSource(transaction *transaction.Transaction) (address string) {
-	var transHash *TxHash
-	b.jsonRPC(&transHash, "getrawtransaction", transaction.TxHash.String, 1)
-
-	for _, vin := range transHash.Vin {
-		if len(vin.TxID) == 0 {
-			continue
-		}
-
-		var vinTransaction *TxHash
-		b.jsonRPC(&transHash, "getrawtransaction", vin.TxID, 1)
-
-		var source *VOut
-		for _, vout := range vinTransaction.VOut {
-			if vout.N == vin.VOut {
-				source = vout
-			}
-		}
-
-		address := source.ScriptPubKey.Addresses[0]
-
-		return address
-	}
-
-	return ""
-}
-
 func (b *Blockchain) buildTransaction(tx *TxHash) []*transaction.Transaction {
 	transactions := make([]*transaction.Transaction, 0)
+
+	from_address, err := b.getFromAddress(tx)
+	if err != nil {
+		return transactions
+	}
+
 	for _, entry := range tx.VOut {
 		if entry.Value.IsNegative() || entry.ScriptPubKey.Addresses == nil {
 			continue
@@ -265,15 +280,12 @@ func (b *Blockchain) buildTransaction(tx *TxHash) []*transaction.Transaction {
 		trans := &transaction.Transaction{
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
+			FromAddress: from_address,
 			ToAddress:   entry.ScriptPubKey.Addresses[0],
 			Amount:      entry.Value,
 			TxHash:      null.StringFrom(tx.TxID),
 			Status:      transaction.StatusSucceed,
 		}
-
-		fromAddress := b.transactionSource(trans)
-
-		trans.FromAddress = fromAddress
 
 		transactions = append(transactions, trans)
 	}

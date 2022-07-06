@@ -3,6 +3,7 @@ package bitcoin
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 
 	"github.com/go-resty/resty/v2"
@@ -65,6 +66,7 @@ func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 		return errors.New("jsonRPC error: " + string(*result.Error))
 	}
 
+	fmt.Println(string(response.Body()))
 	if result.Result == nil {
 		return errors.New("jsonRPC error: result is nil")
 	}
