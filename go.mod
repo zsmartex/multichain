@@ -3,7 +3,7 @@ module github.com/zsmartex/multichain
 go 1.18
 
 require (
-	github.com/blocktree/go-owcdrivers v1.2.0
+	github.com/blocktree/go-owcdrivers v1.2.27
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/ethereum/go-ethereum v1.10.17
@@ -16,14 +16,16 @@ require (
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
-	github.com/blocktree/go-owcrypt v1.1.1 // indirect
+	github.com/blocktree/go-owcrypt v1.1.13 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.1.2 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
+	github.com/drand/kyber v1.1.4 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/phoreproject/bls v0.0.0-20200525203911-a88a5ae26844 // indirect
 	github.com/renproject/surge v1.2.2 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
