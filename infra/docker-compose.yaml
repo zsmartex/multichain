@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  #
+  # Bitcoin
+  #
+  bitcoin:
+    build:
+      context: ./bitcoin
+    ports:
+      - "0.0.0.0:18443:18443"
+    entrypoint:
+      - "./root/run.sh"
+      - "${BITCOIN_ADDRESS}"
+      - "${BITCOIN_PK}"
+
+  #
+  # Ethereum (EIP-1559 compatible)
+  #
+  ethereum:
+    build:
+      context: ./ethereum
+    ports:
+      - "0.0.0.0:8545:8545"
+
+  #
+  # Binance Smart Chain
+  #
+  binance:
+    build:
+      context: ./binance
+    ports:
+      - "0.0.0.0:8575:8575"
+    entrypoint:
+      - "./root/run.sh"
+      - "${BINANCE_MNEMONIC}"
+      - "${BINANCE_ADDRESS}"

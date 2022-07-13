@@ -14,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
+
 	"github.com/zsmartex/multichain/pkg/block"
 	"github.com/zsmartex/multichain/pkg/blockchain"
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
@@ -23,25 +25,25 @@ var abiDefinition = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"na
 var tokenEventIdentifier = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
 type Blockchain struct {
-	currency  *blockchain.Currency
-	contracts []*blockchain.Currency
+	currency  *currency.Currency
+	contracts []*currency.Currency
 	client    *ethclient.Client
 	settings  *blockchain.Settings
 }
 
 func NewBlockchain() blockchain.Blockchain {
 	return &Blockchain{
-		contracts: make([]*blockchain.Currency, 0),
+		contracts: make([]*currency.Currency, 0),
 	}
 }
 
-func (b *Blockchain) Configure(settings *blockchain.Settings) error {
-	rpc_client, err := rpc.Dial(settings.URI)
+func (b *Blockchain) Configure(settings *blockchain.Settings) {
+	rpcClient, err := rpc.Dial(settings.URI)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
-	client := ethclient.NewClient(rpc_client)
+	client := ethclient.NewClient(rpcClient)
 	b.client = client
 	b.settings = settings
 
@@ -52,34 +54,32 @@ func (b *Blockchain) Configure(settings *blockchain.Settings) error {
 			b.currency = c
 		}
 	}
-
-	return nil
 }
 
-func (b *Blockchain) GetLatestBlockNumber() (int64, error) {
-	block_number, err := b.client.BlockNumber(context.Background())
+func (b *Blockchain) GetLatestBlockNumber(ctx context.Context) (int64, error) {
+	blockNumber, err := b.client.BlockNumber(ctx)
 
-	return int64(block_number), err
+	return int64(blockNumber), err
 }
 
-func (b *Blockchain) GetBlockByNumber(block_number int64) (*block.Block, error) {
-	result, err := b.client.BlockByNumber(context.Background(), big.NewInt(block_number))
+func (b *Blockchain) GetBlockByNumber(ctx context.Context, blockNumber int64) (*block.Block, error) {
+	result, err := b.client.BlockByNumber(ctx, big.NewInt(blockNumber))
 	if err != nil {
 		return nil, err
 	}
 
-	return b.GetBlockByHash(result.Hash().Hex())
+	return b.GetBlockByHash(ctx, result.Hash().Hex())
 }
 
-func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
-	result, err := b.client.BlockByHash(context.Background(), common.HexToHash(hash))
+func (b *Blockchain) GetBlockByHash(ctx context.Context, hash string) (*block.Block, error) {
+	result, err := b.client.BlockByHash(ctx, common.HexToHash(hash))
 	if err != nil {
 		return nil, err
 	}
 
 	transactions := make([]*transaction.Transaction, 0)
 	for _, t := range result.Transactions() {
-		txs, err := b.buildTransaction(t)
+		txs, err := b.buildTransaction(ctx, t)
 		if err != nil {
 			return nil, err
 		}
@@ -94,13 +94,13 @@ func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
 	}, nil
 }
 
-func (b *Blockchain) GetTransaction(txHash string) (*transaction.Transaction, error) {
-	result, _, err := b.client.TransactionByHash(context.Background(), common.HexToHash(txHash))
+func (b *Blockchain) GetTransaction(ctx context.Context, txHash string) (*transaction.Transaction, error) {
+	result, _, err := b.client.TransactionByHash(ctx, common.HexToHash(txHash))
 	if err != nil {
 		return nil, err
 	}
 
-	ts, err := b.buildTransaction(result)
+	ts, err := b.buildTransaction(ctx, result)
 	if err != nil {
 		return nil, err
 	}
@@ -108,57 +108,57 @@ func (b *Blockchain) GetTransaction(txHash string) (*transaction.Transaction, er
 	return ts[0], nil
 }
 
-func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (decimal.Decimal, error) {
+func (b *Blockchain) GetBalanceOfAddress(ctx context.Context, address string, currencyID string) (decimal.Decimal, error) {
 	for _, contract := range b.contracts {
-		if currency_id == contract.ID {
-			return b.getERC20Balance(address, contract)
+		if currencyID == contract.ID {
+			return b.getERC20Balance(ctx, address, contract)
 		}
 	}
 
-	block_number, err := b.GetLatestBlockNumber()
+	blockNumber, err := b.GetLatestBlockNumber(ctx)
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	amount, err := b.client.BalanceAt(context.Background(), common.HexToAddress(address), big.NewInt(block_number))
+	amount, err := b.client.BalanceAt(context.Background(), common.HexToAddress(address), big.NewInt(blockNumber))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(amount, -b.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(amount, -b.currency.Subunits), nil
 }
 
-func (b *Blockchain) getERC20Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
-	contract_address := common.HexToAddress(currency.Options["erc20_contract_address"].(string))
+func (b *Blockchain) getERC20Balance(ctx context.Context, address string, currency *currency.Currency) (decimal.Decimal, error) {
+	contractAddress := common.HexToAddress(currency.Options["erc20_contract_address"].(string))
 
-	block_number, err := b.GetLatestBlockNumber()
+	blockNumber, err := b.GetLatestBlockNumber(ctx)
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	abi, err := abi.JSON(strings.NewReader(abiDefinition))
+	abiJSON, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	data, err := abi.Pack("balanceOf", common.HexToAddress(address))
+	data, err := abiJSON.Pack("balanceOf", common.HexToAddress(address))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
 	bytes, err := b.client.CallContract(context.Background(), ethereum.CallMsg{
-		To:   &contract_address,
+		To:   &contractAddress,
 		Data: data,
-	}, big.NewInt(block_number))
+	}, big.NewInt(blockNumber))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.BaseFactor), nil
+	return decimal.NewFromBigInt(new(big.Int).SetBytes(bytes), -currency.Subunits), nil
 }
 
-func (b *Blockchain) buildTransaction(tx *types.Transaction) ([]*transaction.Transaction, error) {
-	receipt, err := b.client.TransactionReceipt(context.Background(), tx.Hash())
+func (b *Blockchain) buildTransaction(ctx context.Context, tx *types.Transaction) ([]*transaction.Transaction, error) {
+	receipt, err := b.client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +176,8 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 		return nil, err
 	}
 
-	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.BaseFactor)
-	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.BaseFactor)
+	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.Subunits)
+	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.Subunits)
 	fee := cost.Sub(amount)
 
 	return []*transaction.Transaction{
@@ -199,7 +199,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 		return b.buildInvalidErc20Transaction(tx, receipt)
 	}
 
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
 
 	transactions := make([]*transaction.Transaction, 0)
 	for _, l := range receipt.Logs {
@@ -238,7 +238,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 }
 
 func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.BaseFactor)
+	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
 
 	transactions := make([]*transaction.Transaction, 0)
 

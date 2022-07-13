@@ -1,28 +1,26 @@
 package blockchain
 
 import (
+	"context"
+
 	"github.com/shopspring/decimal"
+
 	"github.com/zsmartex/multichain/pkg/block"
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
-type Currency struct {
-	ID         string
-	BaseFactor int32 // 8 -> 18
-	Options    map[string]interface{}
-}
-
 type Settings struct {
-	Currencies           []*Currency
+	Currencies           []*currency.Currency
 	WhitelistedAddresses []string
 	URI                  string
 }
 
 type Blockchain interface {
-	Configure(settings *Settings) error
-	GetLatestBlockNumber() (int64, error)
-	GetBlockByHash(hash string) (*block.Block, error)
-	GetBlockByNumber(block_number int64) (*block.Block, error)
-	GetTransaction(transaction_hash string) (*transaction.Transaction, error)
-	GetBalanceOfAddress(address string, currency_id string) (decimal.Decimal, error)
+	Configure(settings *Settings)
+	GetLatestBlockNumber(ctx context.Context) (int64, error)
+	GetBlockByHash(ctx context.Context, hash string) (*block.Block, error)
+	GetBlockByNumber(ctx context.Context, blockNumber int64) (*block.Block, error)
+	GetTransaction(ctx context.Context, transactionHash string) (*transaction.Transaction, error)
+	GetBalanceOfAddress(ctx context.Context, address string, currencyID string) (decimal.Decimal, error)
 }

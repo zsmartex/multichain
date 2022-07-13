@@ -1,8 +1,11 @@
 package wallet
 
 import (
+	"context"
+
 	"github.com/shopspring/decimal"
-	"github.com/zsmartex/multichain/pkg/blockchain"
+
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
@@ -20,23 +23,23 @@ type SettingWallet struct {
 }
 
 type Setting struct {
-	Currency *blockchain.Currency
+	Currency *currency.Currency
 	Wallet   *SettingWallet
 }
 
 type Wallet interface {
 	Configure(settings *Setting) error
 
-	// Create new address from server
-	CreateAddress() (address string, secret string, err error)
+	// CreateAddress Create new address from server
+	CreateAddress() (ctx context.Context, address string, secret string, err error)
 
-	// Create a transaction and send it to the server
-	CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error)
+	// CreateTransaction Create a transaction and send it to the server
+	CreateTransaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error)
 
-	// Load balance from wallet address
-	LoadBalance() (balance decimal.Decimal, err error)
+	// LoadBalance Load balance from wallet address
+	LoadBalance(ctx context.Context) (balance decimal.Decimal, err error)
 
-	// Prepare deposit collection fee for deposit
+	// PrepareDepositCollection Prepare deposit collection fee for deposit
 	// WARN: this func don't execute create transaction just return transaction was built
-	PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error)
+	PrepareDepositCollection(ctx context.Context, depositTransaction *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error)
 }
