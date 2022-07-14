@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM ubuntu:jammy
 
 RUN apt-get update --fix-missing
 RUN apt-get install --yes curl

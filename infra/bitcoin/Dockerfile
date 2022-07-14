@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:jammy
 
 RUN apt-get update && apt-get install --yes software-properties-common
 RUN apt-get install --yes curl
