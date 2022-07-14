@@ -21,7 +21,7 @@ import (
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
-var abiDefinition = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"spender","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`
+var abiDefinition = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_addr","type":"address"}],"name":"getNonce","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"founder","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"version","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"allocateEndBlock","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"},{"name":"_v","type":"uint8"},{"name":"_r","type":"bytes32"},{"name":"_s","type":"bytes32"}],"name":"approveProxy","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_owners","type":"address[]"},{"name":"_values","type":"uint256[]"}],"name":"allocateTokens","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"},{"name":"_extraData","type":"bytes"}],"name":"approveAndCallcode","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"},{"name":"_extraData","type":"bytes"}],"name":"approveAndCall","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"remaining","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"allocateStartBlock","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"},{"name":"_feeUgt","type":"uint256"},{"name":"_v","type":"uint8"},{"name":"_r","type":"bytes32"},{"name":"_s","type":"bytes32"}],"name":"transferProxy","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":false,"stateMutability":"nonpayable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"_from","type":"address"},{"indexed":true,"name":"_to","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"_owner","type":"address"},{"indexed":true,"name":"_spender","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Approval","type":"event"}]`
 var tokenEventIdentifier = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
 type Blockchain struct {
@@ -48,7 +48,7 @@ func (b *Blockchain) Configure(settings *blockchain.Settings) {
 	b.settings = settings
 
 	for _, c := range settings.Currencies {
-		if len(c.Options["erc20_contract_address"].(string)) > 0 {
+		if c.Options["erc20_contract_address"] != nil {
 			b.contracts = append(b.contracts, c)
 		} else {
 			b.currency = c
@@ -163,7 +163,7 @@ func (b *Blockchain) buildTransaction(ctx context.Context, tx *types.Transaction
 		return nil, err
 	}
 
-	if receipt.Logs != nil {
+	if len(receipt.Logs) > 0 {
 		return b.buildERC20Transactions(tx, receipt)
 	} else {
 		return b.buildETHTransactions(tx, receipt)
@@ -171,7 +171,7 @@ func (b *Blockchain) buildTransaction(ctx context.Context, tx *types.Transaction
 }
 
 func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	msg, err := tx.AsMessage(types.NewEIP155Signer(tx.ChainId()), tx.GasPrice())
+	msg, err := tx.AsMessage(types.LatestSignerForChainID(tx.ChainId()), tx.GasPrice())
 	if err != nil {
 		return nil, err
 	}
@@ -180,13 +180,18 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.Subunits)
 	fee := cost.Sub(amount)
 
+	var toAddress string
+	if tx.To() == nil {
+		return []*transaction.Transaction{}, nil
+	}
+
 	return []*transaction.Transaction{
 		{
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
 			TxHash:      null.StringFrom(tx.Hash().Hex()),
 			FromAddress: msg.From().Hex(),
-			ToAddress:   msg.To().Hex(),
+			ToAddress:   toAddress,
 			Fee:         fee,
 			Amount:      amount,
 			Status:      b.transactionStatus(receipt),
@@ -214,12 +219,13 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 		fromAddress := fmt.Sprintf("0x%s", l.Topics[1].Hex()[26:])
 		toAddress := fmt.Sprintf("0x%s", l.Topics[2].Hex()[26:])
 
-		i := new(big.Int)
-		i.SetString(common.Bytes2Hex(l.Data), 16)
-		value := decimal.NewFromBigInt(i, -6)
-
 		for _, c := range b.contracts {
-			if c.Options["erc20_contract_address"] == l.Address.Hex() {
+			contractAddress := c.Options["erc20_contract_address"].(string)
+			if strings.EqualFold(contractAddress, l.Address.Hex()) {
+				i := new(big.Int)
+				i.SetString(common.Bytes2Hex(l.Data), 16)
+				amount := decimal.NewFromBigInt(i, -c.Subunits)
+
 				transactions = append(transactions, &transaction.Transaction{
 					Currency:    c.ID,
 					CurrencyFee: b.currency.ID,
@@ -227,7 +233,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 					FromAddress: fromAddress,
 					ToAddress:   toAddress,
 					Fee:         fee,
-					Amount:      value,
+					Amount:      amount,
 					Status:      b.transactionStatus(receipt),
 				})
 			}

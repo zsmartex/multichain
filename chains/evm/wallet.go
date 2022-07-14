@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math"
@@ -14,7 +15,8 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
-	"github.com/zsmartex/multichain/pkg/blockchain"
+
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 	"github.com/zsmartex/multichain/pkg/utils"
 	"github.com/zsmartex/multichain/pkg/wallet"
@@ -26,19 +28,19 @@ type options struct {
 	GasRate  wallet.GasPriceRate
 }
 
-var default_evm_fee = options{
+var defaultEvmFee = options{
 	GasLimit: 21_000,
 	GasRate:  wallet.GasPriceRateStandard,
 }
 
-var default_erc20_fee = options{
+var defaultErc20Fee = options{
 	GasLimit: 90_000,
 	GasRate:  wallet.GasPriceRateStandard,
 }
 
 type Wallet struct {
 	client   *resty.Client
-	currency *blockchain.Currency  // selected currency for this wallet
+	currency *currency.Currency    // selected currency for this wallet
 	wallet   *wallet.SettingWallet // selected wallet for this currency
 }
 
@@ -48,14 +50,17 @@ func NewWallet() wallet.Wallet {
 	}
 }
 
-func (w *Wallet) Configure(settings *wallet.Setting) error {
-	w.currency = settings.Currency
-	w.wallet = settings.Wallet
+func (w *Wallet) Configure(settings *wallet.Setting) {
+	if settings.Wallet != nil {
+		w.wallet = settings.Wallet
+	}
 
-	return nil
+	if settings.Currency != nil {
+		w.currency = settings.Currency
+	}
 }
 
-func (w *Wallet) jsonRPC(resp interface{}, method string, params ...interface{}) error {
+func (w *Wallet) jsonRPC(ctx context.Context, resp interface{}, method string, params ...interface{}) error {
 	type Result struct {
 		Version string           `json:"version"`
 		ID      int              `json:"id"`
@@ -65,6 +70,7 @@ func (w *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 
 	response, err := w.client.
 		R().
+		SetContext(ctx).
 		SetResult(Result{}).
 		SetHeaders(map[string]string{
 			"Accept":       "application/json",
@@ -99,60 +105,60 @@ func (w *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 	return nil
 }
 
-func (w *Wallet) CreateAddress() (address, secret string, err error) {
+func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err error) {
 	secret = utils.RandomString(32)
 
-	err = w.jsonRPC(&address, "personal_newAccount", secret)
+	err = w.jsonRPC(ctx, &address, "personal_newAccount", secret)
 
 	return
 }
 
-// this func don't execute create transaction just return transaction was built
-func (w *Wallet) PrepareDepositCollection(deposit_transaction *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
-	if len(deposit_currency.Options["erc20_contract_address"].(string)) == 0 {
+// PrepareDepositCollection this func don't execute create transaction just return transaction was built
+func (w *Wallet) PrepareDepositCollection(ctx context.Context, depositTransaction *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error) {
+	if depositCurrency.Options["erc20_contract_address"] == nil {
 		return nil, nil
 	}
 
-	options := w.merege_options(default_erc20_fee, deposit_currency.Options)
+	options := w.mergeOptions(defaultEvmFee, depositCurrency.Options)
 
-	gas_price, err := w.calculate_gas_price(options.GasRate)
+	gasPrice, err := w.calculateGasPrice(ctx, options.GasRate)
 	if err != nil {
 		return nil, err
 	}
 
-	fees := decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gas_price)), -w.currency.BaseFactor)
-	amount := fees.Mul(decimal.NewFromInt(int64(len(deposit_spreads))))
+	fees := decimal.NewFromBigInt(big.NewInt(int64(options.GasLimit*gasPrice)), -w.currency.Subunits)
+	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
 
-	deposit_transaction.Amount = amount
+	depositTransaction.Amount = amount
 
-	if deposit_transaction.Options == nil {
-		deposit_transaction.Options = make(map[string]interface{})
+	if depositTransaction.Options == nil {
+		depositTransaction.Options = make(map[string]interface{})
 	}
 
 	if options.GasLimit != 0 {
-		deposit_transaction.Options["gas_limit"] = options.GasLimit
+		depositTransaction.Options["gas_limit"] = options.GasLimit
 	}
 
 	if options.GasPrice != 0 {
-		deposit_transaction.Options["gas_price"] = options.GasPrice
+		depositTransaction.Options["gas_price"] = options.GasPrice
 	}
 
-	return deposit_transaction, nil
+	return depositTransaction, nil
 }
 
-func (w *Wallet) CreateTransaction(transaction *transaction.Transaction) (*transaction.Transaction, error) {
-	if len(w.currency.Options["erc20_contract_address"].(string)) > 0 {
-		return w.createErc20Transaction(transaction)
+func (w *Wallet) CreateTransaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error) {
+	if len(w.ContractAddress()) > 0 {
+		return w.createErc20Transaction(ctx, transaction)
 	} else {
-		return w.createEvmTransaction(transaction)
+		return w.createEvmTransaction(ctx, transaction)
 	}
 }
 
-func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *transaction.Transaction, err error) {
-	options := w.merege_options(default_evm_fee, w.currency.Options)
+func (w *Wallet) createEvmTransaction(ctx context.Context, transaction *transaction.Transaction) (t *transaction.Transaction, err error) {
+	options := w.mergeOptions(defaultEvmFee, w.currency.Options)
 
 	if options.GasPrice == 0 {
-		gp, err := w.calculate_gas_price(options.GasRate)
+		gp, err := w.calculateGasPrice(ctx, options.GasRate)
 		if err != nil {
 			return nil, err
 		}
@@ -160,13 +166,13 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 		options.GasPrice = gp
 	}
 
-	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
-	amount := transaction.Amount.Mul(sub_units)
+	subunits := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
+	amount := transaction.Amount.Mul(subunits)
 
 	var txid string
-	err = w.jsonRPC(&txid, "personal_sendTransaction", map[string]string{
-		"from":     transaction.FromAddress,
-		"to":       transaction.ToAddress,
+	err = w.jsonRPC(ctx, &txid, "personal_sendTransaction", map[string]string{
+		"from":     w.normalizeAddress(w.wallet.Address),
+		"to":       w.normalizeAddress(transaction.ToAddress),
 		"value":    hexutil.EncodeBig(amount.BigInt()),
 		"gas":      hexutil.EncodeUint64(options.GasLimit),
 		"gasPrice": hexutil.EncodeUint64(options.GasPrice),
@@ -180,12 +186,11 @@ func (w *Wallet) createEvmTransaction(transaction *transaction.Transaction) (t *
 	return transaction, nil
 }
 
-func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*transaction.Transaction, error) {
-	contract_address := w.currency.Options["erc20_contract_address"].(string)
-	options := w.merege_options(default_evm_fee, w.currency.Options)
+func (w *Wallet) createErc20Transaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error) {
+	options := w.mergeOptions(defaultErc20Fee, w.currency.Options)
 
 	if options.GasPrice == 0 {
-		gp, err := w.calculate_gas_price(options.GasRate)
+		gp, err := w.calculateGasPrice(ctx, options.GasRate)
 		if err != nil {
 			return nil, err
 		}
@@ -193,23 +198,23 @@ func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*
 		options.GasPrice = gp
 	}
 
-	sub_units := decimal.NewFromInt(int64(math.Pow10(int(w.currency.BaseFactor))))
-	amount := transaction.Amount.Mul(sub_units)
+	subunits := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
+	amount := transaction.Amount.Mul(subunits)
 
-	abi, err := abi.JSON(strings.NewReader(abiDefinition))
+	abiJSON, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := abi.Pack("transfer", common.HexToAddress(transaction.ToAddress), hexutil.EncodeBig(amount.BigInt()))
+	data, err := abiJSON.Pack("transfer", common.HexToAddress(w.normalizeAddress(transaction.ToAddress)), amount.BigInt())
 	if err != nil {
 		return nil, err
 	}
 
 	var txid string
-	err = w.jsonRPC(&txid, "personal_sendTransaction", map[string]string{
-		"from":     transaction.FromAddress,
-		"to":       contract_address, // to contract address
+	err = w.jsonRPC(ctx, &txid, "personal_sendTransaction", map[string]string{
+		"from":     w.normalizeAddress(w.wallet.Address),
+		"to":       w.ContractAddress(), // to contract address
 		"data":     hexutil.Encode(data),
 		"gas":      hexutil.EncodeUint64(options.GasLimit),
 		"gasPrice": hexutil.EncodeUint64(options.GasPrice),
@@ -223,9 +228,25 @@ func (w *Wallet) createErc20Transaction(transaction *transaction.Transaction) (*
 	return transaction, nil
 }
 
-func (w *Wallet) calculate_gas_price(gas_rate wallet.GasPriceRate) (gas_price uint64, err error) {
+func (w *Wallet) normalizeAddress(address string) string {
+	if !strings.HasPrefix(address, "0x") {
+		address = "0x" + address
+	}
+
+	return strings.ToLower(address)
+}
+
+func (w *Wallet) ContractAddress() string {
+	if w.currency.Options["erc20_contract_address"] != nil {
+		return w.currency.Options["erc20_contract_address"].(string)
+	} else {
+		return ""
+	}
+}
+
+func (w *Wallet) calculateGasPrice(ctx context.Context, gas_rate wallet.GasPriceRate) (gas_price uint64, err error) {
 	var result string
-	err = w.jsonRPC(&result, "eth_gasPrice")
+	err = w.jsonRPC(ctx, &result, "eth_gasPrice")
 	if err != nil {
 		return
 	}
@@ -241,51 +262,58 @@ func (w *Wallet) calculate_gas_price(gas_rate wallet.GasPriceRate) (gas_price ui
 	var gp uint64
 	gp, err = hexutil.DecodeUint64(result)
 
-	return (gp * uint64(rate)), err
+	return gp * uint64(rate), err
 }
 
-func (w *Wallet) LoadBalance() (balance decimal.Decimal, err error) {
-	if len(w.currency.Options["erc20_contract_address"].(string)) > 0 {
-		return w.loadBalanceEvmBalance(w.wallet.Address)
+func (w *Wallet) LoadBalance(ctx context.Context) (balance decimal.Decimal, err error) {
+	if len(w.ContractAddress()) > 0 {
+		return w.loadBalanceErc20Balance(ctx, w.wallet.Address)
 	} else {
-		return w.loadBalanceErc20Balance(w.wallet.Address)
+		return w.loadBalanceEvmBalance(ctx, w.wallet.Address)
 	}
 }
 
-func (w *Wallet) loadBalanceEvmBalance(address string) (balance decimal.Decimal, err error) {
-	err = w.jsonRPC(&balance, "eth_getBalance", address, "latest")
+func (w *Wallet) loadBalanceEvmBalance(ctx context.Context, address string) (balance decimal.Decimal, err error) {
+	var result string
+	err = w.jsonRPC(ctx, &result, "eth_getBalance", address, "latest")
+	if err != nil {
+		return
+	}
 
-	return
+	return w.hexToDecimal(result)
 }
 
-func (w *Wallet) loadBalanceErc20Balance(address string) (balance decimal.Decimal, err error) {
-	contract_address := w.currency.Options["erc20_contract_address"].(string)
-
-	abi, err := abi.JSON(strings.NewReader(abiDefinition))
+func (w *Wallet) loadBalanceErc20Balance(ctx context.Context, address string) (balance decimal.Decimal, err error) {
+	abiJSON, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	data, err := abi.Pack("balanceOf", common.HexToAddress(address))
+	data, err := abiJSON.Pack("balanceOf", common.HexToAddress(address))
 	if err != nil {
 		return decimal.Zero, err
 	}
 
 	var result string
-	w.jsonRPC(&result, "eth_call", map[string]string{
-		"to":   contract_address,
-		"data": hexutil.Encode(data),
-	})
+	if err := w.jsonRPC(ctx, &result, "eth_call", map[string]string{"to": w.ContractAddress(), "data": hexutil.Encode(data)}, "latest"); err != nil {
+		return decimal.Zero, err
+	}
 
-	b, err := hexutil.DecodeBig(result)
+	return w.hexToDecimal(result)
+}
+
+func (w *Wallet) hexToDecimal(hex string) (decimal.Decimal, error) {
+	hex = "0x" + strings.TrimLeft(strings.TrimLeft(hex, "0x"), "0")
+
+	b, err := hexutil.DecodeBig(hex)
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(b, -w.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(b, -w.currency.Subunits), nil
 }
 
-func (w *Wallet) merege_options(first options, step map[string]interface{}) options {
+func (w *Wallet) mergeOptions(first options, step map[string]interface{}) options {
 	opts := first
 
 	if step == nil {

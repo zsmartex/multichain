@@ -28,10 +28,10 @@ type Setting struct {
 }
 
 type Wallet interface {
-	Configure(settings *Setting) error
+	Configure(settings *Setting)
 
 	// CreateAddress Create new address from server
-	CreateAddress() (ctx context.Context, address string, secret string, err error)
+	CreateAddress(ctx context.Context) (address string, secret string, err error)
 
 	// CreateTransaction Create a transaction and send it to the server
 	CreateTransaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error)
