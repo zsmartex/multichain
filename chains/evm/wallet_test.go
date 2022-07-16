@@ -18,7 +18,6 @@ func newWallet() wallet.Wallet {
 		Wallet: &wallet.SettingWallet{
 			URI:     "http://65.108.75.172:8575",
 			Address: "0x836c827df764bf899656c9667421c4cab7c22c5c",
-			Secret:  "HBKGqksqGcFM8OOQwwxsySizQJCNjue5",
 		},
 	})
 

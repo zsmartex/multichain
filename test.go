@@ -1,14 +1,18 @@
-package concerns
+package main
 
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	// "github.com/ipsn/go-secp256k1"
 	"github.com/shengdoushi/base58"
 )
 
@@ -68,6 +72,15 @@ func Base58ToAddress(s string) (Address, error) {
 		return nil, err
 	}
 	return addr, nil
+}
+
+// Base64ToAddress returns Address with byte values of s.
+func Base64ToAddress(s string) (Address, error) {
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	return Address(decoded), nil
 }
 
 // String implements fmt.Stringer.
@@ -144,4 +157,28 @@ func DecodeCheck(input string) ([]byte, error) {
 		return decodeData, nil
 	}
 	return nil, fmt.Errorf("b58 check error")
+}
+
+// GenerateKey generates a new private key.
+func GenerateKey() (*ecdsa.PrivateKey, error) {
+	return ecdsa.GenerateKey(secp256k1.S256(), rand.Reader)
+}
+
+func main() {
+	hexAddress := "41e0dface0995ce544a205bc4430c41800f857165f"
+	// address := "TVBchW9UZMoR3QCxprGAkHdo351pvrcmRp"
+
+	// addr := []byte{}
+	// addr = append(addr, TronBytePrefix)
+	// addr = append(addr, common.HexToAddress(hexAddress).Bytes()...)
+
+	addr := HexToAddress(hexAddress)
+
+	// addr, err := Base58ToAddress(address)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	fmt.Println(Address(addr).String())
+	fmt.Println(Address(addr).Hex())
 }

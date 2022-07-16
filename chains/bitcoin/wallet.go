@@ -1,14 +1,18 @@
 package bitcoin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
-	"github.com/zsmartex/multichain/pkg/blockchain"
+
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 	"github.com/zsmartex/multichain/pkg/utils"
 	"github.com/zsmartex/multichain/pkg/wallet"
@@ -16,7 +20,7 @@ import (
 
 type Wallet struct {
 	client   *resty.Client
-	currency *blockchain.Currency
+	currency *currency.Currency
 	wallet   *wallet.SettingWallet
 }
 
@@ -26,14 +30,17 @@ func NewWallet() wallet.Wallet {
 	}
 }
 
-func (w *Wallet) Configure(settings *wallet.Setting) error {
-	w.currency = settings.Currency
-	w.wallet = settings.Wallet
+func (w *Wallet) Configure(settings *wallet.Setting) {
+	if settings.Wallet != nil {
+		w.wallet = settings.Wallet
+	}
 
-	return nil
+	if settings.Currency != nil {
+		w.currency = settings.Currency
+	}
 }
 
-func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{}) error {
+func (w *Wallet) jsonRPC(ctx context.Context, resp interface{}, method string, params ...interface{}) error {
 	type Result struct {
 		Version string           `json:"version"`
 		ID      int              `json:"id"`
@@ -41,8 +48,9 @@ func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 		Error   *json.RawMessage `json:"error"`
 	}
 
-	response, err := b.client.
+	response, err := w.client.
 		R().
+		SetContext(ctx).
 		SetResult(Result{}).
 		SetHeaders(map[string]string{
 			"Accept":       "application/json",
@@ -53,7 +61,7 @@ func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 			"id":      rand.Int(),
 			"method":  method,
 			"params":  params,
-		}).Post(b.wallet.URI)
+		}).Post(w.wallet.URI)
 
 	if err != nil {
 		return err
@@ -76,35 +84,49 @@ func (b *Wallet) jsonRPC(resp interface{}, method string, params ...interface{})
 	return nil
 }
 
-func (w *Wallet) CreateAddress() (address, secret string, err error) {
+func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err error) {
 	secret = utils.RandomString(32)
 
-	err = w.jsonRPC(&address, "getnewaddress", secret)
+	err = w.jsonRPC(ctx, &address, "getnewaddress", secret)
 
 	return
 }
 
-func (w *Wallet) CreateTransaction(trans *transaction.Transaction) (transaction *transaction.Transaction, err error) {
+func (w *Wallet) CreateTransaction(ctx context.Context, trans *transaction.Transaction) (transaction *transaction.Transaction, err error) {
 	var txid string
-	err = w.jsonRPC(&txid, "sendtoaddress", []interface{}{
+	err = w.jsonRPC(ctx, &txid, "sendtoaddress",
 		trans.ToAddress,
 		trans.Amount,
 		"",
 		"",
 		false,
-	})
+	)
 
 	trans.TxHash = null.StringFrom(txid)
 
 	return trans, err
 }
 
-func (w *Wallet) LoadBalance() (balance decimal.Decimal, err error) {
-	err = w.jsonRPC(&balance, "getbalance")
+func (w *Wallet) LoadBalance(ctx context.Context) (balance decimal.Decimal, err error) {
+	var resp [][][]interface{}
+
+	err = w.jsonRPC(ctx, &resp, "listaddressgroupings")
+
+	fmt.Println(resp)
+
+	for _, gr := range resp {
+		for _, addr := range gr {
+			if len(addr) >= 2 {
+				if strings.EqualFold(addr[0].(string), w.wallet.Address) {
+					balance = balance.Add(decimal.NewFromFloat(addr[1].(float64)))
+				}
+			}
+		}
+	}
 
 	return
 }
 
-func (w *Wallet) PrepareDepositCollection(trans *transaction.Transaction, deposit_spreads []*transaction.Transaction, deposit_currency *blockchain.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(context.Context, *transaction.Transaction, []*transaction.Transaction, *currency.Currency) (*transaction.Transaction, error) {
 	return nil, errors.New("failed to prepare deposit collection due: bitcoin client are not supported")
 }

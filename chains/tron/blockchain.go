@@ -1,6 +1,7 @@
 package tron
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,9 +11,11 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
+
 	"github.com/zsmartex/multichain/chains/tron/concerns"
 	"github.com/zsmartex/multichain/pkg/block"
 	"github.com/zsmartex/multichain/pkg/blockchain"
+	"github.com/zsmartex/multichain/pkg/currency"
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
@@ -40,7 +43,7 @@ type Transaction struct {
 				} `json:"value"`
 				TypeUrl string `json:"type_url"`
 			} `json:"parameter"`
-			Type string `json:"TransferContract"` // TransferContract or TransferAssetContract
+			Type string `json:"type"` // TransferContract or TransferAssetContract
 		} `json:"contract"`
 	} `json:"raw_data"`
 }
@@ -73,53 +76,48 @@ type Account struct {
 }
 
 type Blockchain struct {
-	currency        *blockchain.Currency
-	trc10_contracts []*blockchain.Currency
-	trc20_contracts []*blockchain.Currency
-	currencies      []*blockchain.Currency
-	client          *resty.Client
-	settings        *blockchain.Settings
+	currency   *currency.Currency
+	contracts  []*currency.Currency
+	currencies []*currency.Currency
+	client     *resty.Client
+	settings   *blockchain.Settings
 }
 
 func NewBlockchain() blockchain.Blockchain {
 	return &Blockchain{
-		trc10_contracts: make([]*blockchain.Currency, 0),
-		trc20_contracts: make([]*blockchain.Currency, 0),
+		contracts: make([]*currency.Currency, 0),
 	}
 }
 
-func (b *Blockchain) Configure(settings *blockchain.Settings) error {
+func (b *Blockchain) Configure(settings *blockchain.Settings) {
 	b.settings = settings
 	b.client = resty.New()
 	b.currencies = settings.Currencies
 
 	for _, c := range settings.Currencies {
-		if len(c.Options["trc10_asset_id"].(string)) > 0 {
-			b.trc10_contracts = append(b.trc10_contracts, c)
-		} else if len(c.Options["trc20_asset_id"].(string)) > 0 {
-			b.trc20_contracts = append(b.trc20_contracts, c)
+		if c.Options["trc20_contract_address"] != nil {
+			b.contracts = append(b.contracts, c)
 		} else {
 			b.currency = c
 		}
 	}
-
-	return nil
 }
 
-func (b *Blockchain) jsonRPC(resp interface{}, method string, params interface{}) error {
+func (b *Blockchain) jsonRPC(ctx context.Context, resp interface{}, method string, params interface{}) error {
 	type Result struct {
 		Error *json.RawMessage `json:"Error,omitempty"`
 	}
 
 	response, err := b.client.
 		R().
+		SetContext(ctx).
 		SetResult(Result{}).
 		SetHeaders(map[string]string{
 			"Accept":       "application/json",
 			"Content-Type": "application/json",
 		}).
 		SetBody(params).
-		Post(b.settings.URI)
+		Post(fmt.Sprintf("%s/%s", b.settings.URI, method))
 
 	if err != nil {
 		return err
@@ -138,9 +136,9 @@ func (b *Blockchain) jsonRPC(resp interface{}, method string, params interface{}
 	return nil
 }
 
-func (b *Blockchain) GetLatestBlockNumber() (int64, error) {
+func (b *Blockchain) GetLatestBlockNumber(ctx context.Context) (int64, error) {
 	var resp *Block
-	err := b.jsonRPC(&resp, "wallet/getnowblock", nil)
+	err := b.jsonRPC(ctx, &resp, "wallet/getnowblock", nil)
 	if err != nil {
 		return 0, err
 	}
@@ -148,34 +146,34 @@ func (b *Blockchain) GetLatestBlockNumber() (int64, error) {
 	return resp.BlockHeader.RawData.Number, nil
 }
 
-func (b *Blockchain) GetBlockByNumber(block_number int64) (*block.Block, error) {
+func (b *Blockchain) GetBlockByNumber(ctx context.Context, blockNumber int64) (*block.Block, error) {
 	var resp *Block
-	err := b.jsonRPC(&resp, "wallet/getblockbynum", map[string]interface{}{
-		"num": block_number,
+	err := b.jsonRPC(ctx, &resp, "wallet/getblockbynum", map[string]interface{}{
+		"num": blockNumber,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return b.buildBlock(resp)
+	return b.buildBlock(ctx, resp)
 }
 
-func (b *Blockchain) GetBlockByHash(hash string) (*block.Block, error) {
+func (b *Blockchain) GetBlockByHash(ctx context.Context, hash string) (*block.Block, error) {
 	var resp *Block
-	err := b.jsonRPC(&resp, "wallet/getblockbyid", map[string]interface{}{
+	err := b.jsonRPC(ctx, &resp, "wallet/getblockbyid", map[string]interface{}{
 		"value": hash,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return b.buildBlock(resp)
+	return b.buildBlock(ctx, resp)
 }
 
-func (b *Blockchain) buildBlock(blk *Block) (*block.Block, error) {
+func (b *Blockchain) buildBlock(ctx context.Context, blk *Block) (*block.Block, error) {
 	transactions := make([]*transaction.Transaction, 0)
 	for _, t := range blk.Transactions {
-		trans, err := b.buildTransaction(t)
+		trans, err := b.buildTransaction(ctx, t)
 		if err != nil {
 			return nil, err
 		}
@@ -193,29 +191,20 @@ func (b *Blockchain) buildBlock(blk *Block) (*block.Block, error) {
 	}, nil
 }
 
-func (b *Blockchain) buildTransaction(tx *Transaction) ([]*transaction.Transaction, error) {
+func (b *Blockchain) buildTransaction(ctx context.Context, tx *Transaction) ([]*transaction.Transaction, error) {
 	if len(tx.RawData.Contract) == 0 {
-		if b.invalid_txn(tx) {
+		if b.invalidTxn(tx) {
 			return nil, errors.New("transaction contract not found")
 		}
 	}
 
 	if tx.RawData.Contract[0].Type == "TransferContract" || tx.RawData.Contract[0].Type == "TransferAssetContract" {
-		if b.invalid_txn(tx) {
+		if b.invalidTxn(tx) {
 			return nil, errors.New("transaction invalid txn")
 		}
 
-		// build transaction for coin and trc10
-		switch tx.RawData.Contract[0].Type {
-		case "TransferContract":
+		if tx.RawData.Contract[0].Type == "TransferContract" {
 			txr, err := b.buildTrxTransaction(tx)
-			if err != nil {
-				return nil, err
-			}
-
-			return []*transaction.Transaction{txr}, nil
-		case "TransferAssetContract":
-			txr, err := b.buildTrc10Transaction(tx)
 			if err != nil {
 				return nil, err
 			}
@@ -225,25 +214,25 @@ func (b *Blockchain) buildTransaction(tx *Transaction) ([]*transaction.Transacti
 	}
 
 	var txn *TransactionInfo
-	err := b.jsonRPC(&txn, "wallet/gettransactioninfobyid", map[string]interface{}{
+	err := b.jsonRPC(ctx, &txn, "wallet/gettransactioninfobyid", map[string]interface{}{
 		"value": tx.TxID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if b.invalid_trc20_txn(txn) {
+	if b.invalidTrc20Txn(txn) {
 		return nil, errors.New("transaction invalid trc20 txn")
 	}
 
 	return b.buildTrc20Transaction(txn)
 }
 
-func (b *Blockchain) invalid_txn(tx *Transaction) bool {
+func (b *Blockchain) invalidTxn(tx *Transaction) bool {
 	return tx.RawData.Contract[0].Parameter.Value.Amount == 0 || tx.Ret[0].ContractRet == "REVERT"
 }
 
-func (b *Blockchain) invalid_trc20_txn(txn *TransactionInfo) bool {
+func (b *Blockchain) invalidTrc20Txn(txn *TransactionInfo) bool {
 	if txn.Log == nil {
 		return false
 	}
@@ -253,237 +242,147 @@ func (b *Blockchain) invalid_trc20_txn(txn *TransactionInfo) bool {
 
 func (b *Blockchain) buildTrxTransaction(txn *Transaction) (*transaction.Transaction, error) {
 	tx := txn.RawData.Contract[0]
-	from_address, err := concerns.DecodeAddress(tx.Parameter.Value.OwnerAddress)
-	if err != nil {
-		return nil, err
-	}
-	to_address, err := concerns.EncodeAddress(tx.Parameter.Value.ToAddress)
-	if err != nil {
-		return nil, err
-	}
+	fromAddress := concerns.HexToAddress(tx.Parameter.Value.OwnerAddress)
+	toAddress := concerns.HexToAddress(tx.Parameter.Value.ToAddress)
 
-	transaction := &transaction.Transaction{
+	t := &transaction.Transaction{
 		Currency:    b.currency.ID,
 		CurrencyFee: b.currency.ID,
 		TxHash:      null.StringFrom(txn.TxID),
-		ToAddress:   to_address,
-		FromAddress: from_address,
-		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.BaseFactor),
+		ToAddress:   toAddress.String(),
+		FromAddress: fromAddress.String(),
+		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.Subunits),
 		Status:      transaction.StatusSucceed,
 	}
 
-	return transaction, nil
+	return t, nil
 }
 
-func (b *Blockchain) buildTrc10Transaction(txn *Transaction) (*transaction.Transaction, error) {
-	tx := txn.RawData.Contract[0]
-	var currency *blockchain.Currency
-	for _, c := range b.trc10_contracts {
-		asset_id, err := concerns.DecodeHex(tx.Parameter.Value.AssetName)
-		if err != nil {
-			return nil, err
-		}
-		if asset_id == c.Options["trc10_asset_id"] {
-			currency = c
-			break
-		}
+func (b *Blockchain) buildTrc20Transaction(txnReceipt *TransactionInfo) ([]*transaction.Transaction, error) {
+	if txnReceipt.Log == nil {
+		return b.buildInvalidTrc20Txn(txnReceipt)
 	}
 
-	if currency == nil {
-		return nil, errors.New("currency not found")
-	}
-
-	from_address, err := concerns.DecodeAddress(tx.Parameter.Value.OwnerAddress)
-	if err != nil {
-		return nil, err
-	}
-	to_address, err := concerns.EncodeAddress(tx.Parameter.Value.ToAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	transaction := &transaction.Transaction{
-		Currency:    currency.ID,
-		CurrencyFee: b.currency.ID,
-		TxHash:      null.StringFrom(txn.TxID),
-		ToAddress:   to_address,
-		FromAddress: from_address,
-		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -currency.BaseFactor),
-		Status:      transaction.StatusSucceed,
-	}
-
-	return transaction, nil
-}
-
-func (b *Blockchain) buildTrc20Transaction(txn_receipt *TransactionInfo) ([]*transaction.Transaction, error) {
-	if txn_receipt.Log == nil {
-		return b.buildInvalidTrc20Txn(txn_receipt)
-	}
-
-	if b.trc20TxnStatus(txn_receipt) == transaction.StatusFailed && len(txn_receipt.Log) == 0 {
-		return b.buildInvalidTrc20Txn(txn_receipt)
+	if b.trc20TxnStatus(txnReceipt) == transaction.StatusFailed && len(txnReceipt.Log) == 0 {
+		return b.buildInvalidTrc20Txn(txnReceipt)
 	}
 
 	transactions := make([]*transaction.Transaction, 0)
-	for _, log := range txn_receipt.Log {
-		if len(log.Topics) == 0 {
+	for _, log := range txnReceipt.Log {
+		if len(log.Topics) == 0 || log.Topics[0] != "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
 			continue
 		}
 
-		if log.Topics[0] == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" {
-			continue
-		}
-
-		var currency *blockchain.Currency
-		for _, c := range b.trc20_contracts {
-			contract_address, err := concerns.EncodeAddress(fmt.Sprintf("41%s", log.Address))
-			if err != nil {
-				return nil, err
-			}
-
-			if c.Options["trc20_contract_address"] == contract_address {
-				currency = c
+		var c *currency.Currency
+		for _, contract := range b.contracts {
+			contractAddress := concerns.HexToAddress(fmt.Sprintf("41%s", log.Address))
+			if contract.Options["trc20_contract_address"] == contractAddress.String() {
+				c = contract
 				break
 			}
 		}
 
-		if currency == nil {
+		if c == nil {
 			continue
 		}
 
-		from_address, err := concerns.EncodeAddress(fmt.Sprintf("41%s", log.Topics[1][24:]))
-		if err != nil {
-			return nil, err
-		}
+		bigAmount := big.NewInt(0)
+		bigAmount.SetString(log.Data, 16)
 
-		to_address, err := concerns.EncodeAddress(fmt.Sprintf("41%s", log.Topics[2][24:]))
-		if err != nil {
-			return nil, err
-		}
-
-		amount := decimal.NewFromBigInt(big.NewInt(0), -currency.BaseFactor)
+		fromAddress := concerns.HexToAddress(fmt.Sprintf("41%s", log.Topics[1][24:]))
+		toAddress := concerns.HexToAddress(fmt.Sprintf("41%s", log.Topics[2][24:]))
+		amount := decimal.NewFromBigInt(bigAmount, -c.Subunits)
 
 		transactions = append(transactions, &transaction.Transaction{
-			Currency:    currency.ID,
+			Currency:    c.ID,
 			CurrencyFee: b.currency.ID,
-			TxHash:      null.StringFrom(txn_receipt.ID),
-			ToAddress:   to_address,
-			FromAddress: from_address,
+			TxHash:      null.StringFrom(txnReceipt.ID),
+			ToAddress:   toAddress.String(),
+			FromAddress: fromAddress.String(),
 			Amount:      amount,
-			Status:      b.trc20TxnStatus(txn_receipt),
+			Status:      b.trc20TxnStatus(txnReceipt),
 		})
 	}
 
 	return transactions, nil
 }
 
-func (b *Blockchain) trc20TxnStatus(txn_receipt *TransactionInfo) transaction.Status {
-	if txn_receipt.Receipt.Result == "SUCCESS" {
+func (b *Blockchain) trc20TxnStatus(txnReceipt *TransactionInfo) transaction.Status {
+	if txnReceipt.Receipt.Result == "SUCCESS" {
 		return transaction.StatusSucceed
 	} else {
 		return transaction.StatusFailed
 	}
 }
 
-func (b *Blockchain) buildInvalidTrc20Txn(txn_receipt *TransactionInfo) ([]*transaction.Transaction, error) {
-	var currency *blockchain.Currency
-	for _, c := range b.trc20_contracts {
-		contract_address, err := concerns.EncodeAddress(txn_receipt.ContractAddress)
-		if err != nil {
-			return nil, err
-		}
+func (b *Blockchain) buildInvalidTrc20Txn(txnReceipt *TransactionInfo) ([]*transaction.Transaction, error) {
+	var c *currency.Currency
+	for _, contract := range b.contracts {
+		contractAddress := concerns.HexToAddress(txnReceipt.ContractAddress)
 
-		if c.Options["trc20_contract_address"] == contract_address {
-			currency = c
+		if contract.Options["trc20_contract_address"] == contractAddress.String() {
+			c = contract
 			break
 		}
 	}
 
-	if currency == nil {
-		return nil, errors.New("currency not found")
+	if c == nil {
+		return nil, nil
 	}
 
 	return []*transaction.Transaction{
 		{
-			Currency:    currency.ID,
+			Currency:    c.ID,
 			CurrencyFee: b.currency.ID,
-			TxHash:      null.StringFrom(txn_receipt.ID),
-			Status:      b.trc20TxnStatus(txn_receipt),
+			TxHash:      null.StringFrom(txnReceipt.ID),
+			Status:      b.trc20TxnStatus(txnReceipt),
 		},
 	}, nil
 }
 
-func (b *Blockchain) GetBalanceOfAddress(address string, currency_id string) (decimal.Decimal, error) {
-	var currency *blockchain.Currency
-	for _, c := range b.currencies {
-		if c.ID == currency_id {
-			currency = c
+func (b *Blockchain) GetBalanceOfAddress(ctx context.Context, address string, currencyID string) (decimal.Decimal, error) {
+	var c *currency.Currency
+	for _, cu := range b.currencies {
+		if cu.ID == currencyID {
+			c = cu
 			break
 		}
 	}
 
-	if currency == nil {
+	if c == nil {
 		return decimal.Zero, errors.New("currency not found")
 	}
 
-	if len(currency.Options["trc10_asset_id"].(string)) > 0 {
-		return b.loadTrc10Balance(address, currency)
-	} else if len(currency.Options["trc20_contract_address"].(string)) > 0 {
-		return b.loadTrc20Balance(address, currency)
+	if c.Options["trc20_contract_address"] != nil {
+		return b.loadTrc20Balance(ctx, address, c)
 	} else {
-		return b.loadTrxBalance(address)
+		return b.loadTrxBalance(ctx, address)
 	}
 }
 
-func (b *Blockchain) loadTrxBalance(address string) (decimal.Decimal, error) {
-	decoded_address, err := concerns.DecodeAddress(address)
+func (b *Blockchain) loadTrxBalance(ctx context.Context, address string) (decimal.Decimal, error) {
+	decodedAddress, err := concerns.Base58ToAddress(address)
 	if err != nil {
 		return decimal.Zero, err
 	}
 
 	var resp *Account
-	if err := b.jsonRPC(&resp, "wallet/getaccount", map[string]interface{}{
-		"address": decoded_address,
+	if err := b.jsonRPC(ctx, &resp, "wallet/getaccount", map[string]interface{}{
+		"address": decodedAddress.Hex(),
 	}); err != nil {
 		return decimal.Zero, err
 	}
 
-	return decimal.NewFromBigInt(big.NewInt(resp.Balance), -b.currency.BaseFactor), nil
+	return decimal.NewFromBigInt(big.NewInt(resp.Balance), -b.currency.Subunits), nil
 }
 
-func (b *Blockchain) loadTrc10Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
-	decoded_address, err := concerns.DecodeAddress(address)
+func (b *Blockchain) loadTrc20Balance(ctx context.Context, address string, currency *currency.Currency) (decimal.Decimal, error) {
+	ownerAddress, err := concerns.Base58ToAddress(address)
 	if err != nil {
 		return decimal.Zero, err
 	}
 
-	var resp *Account
-	if err := b.jsonRPC(&resp, "wallet/getaccount", map[string]interface{}{
-		"address": decoded_address,
-	}); err != nil {
-		return decimal.Zero, err
-	}
-
-	if resp.AssetV2 == nil {
-		return decimal.Zero, errors.New("asset not found")
-	}
-
-	for _, a := range resp.AssetV2 {
-		if a.Key == currency.Options["trc10_asset_id"] {
-			return decimal.NewFromBigInt(big.NewInt(a.Value), -currency.BaseFactor), nil
-		}
-	}
-
-	return decimal.Zero, nil
-}
-
-func (b *Blockchain) loadTrc20Balance(address string, currency *blockchain.Currency) (decimal.Decimal, error) {
-	owner_address, err := concerns.DecodeAddress(address)
-	if err != nil {
-		return decimal.Zero, err
-	}
-
-	contract_address, err := concerns.DecodeAddress(currency.Options["trc20_contract_address"].(string))
+	contractAddress, err := concerns.Base58ToAddress(currency.Options["trc20_contract_address"].(string))
 	if err != nil {
 		return decimal.Zero, err
 	}
@@ -493,29 +392,32 @@ func (b *Blockchain) loadTrc20Balance(address string, currency *blockchain.Curre
 	}
 
 	var resp *Result
-	b.jsonRPC(&resp, "wallet/triggersmartcontract", map[string]interface{}{
-		"owner_address":     owner_address,
-		"contract_address":  contract_address,
+	err = b.jsonRPC(ctx, &resp, "wallet/triggersmartcontract", map[string]interface{}{
+		"owner_address":     ownerAddress.Hex(),
+		"contract_address":  contractAddress.Hex(),
 		"function_selector": "balanceOf(address)",
-		"parameter":         xstrings.RightJustify(owner_address[2:], 64, "0"),
+		"parameter":         xstrings.RightJustify(ownerAddress.Hex()[2:], 64, "0"),
 	})
+	if err != nil {
+		return decimal.Zero, err
+	}
 
 	s := resp.ConstantResult[0]
 	bi := new(big.Int)
 	bi.SetString(s, 16)
 
-	return decimal.NewFromBigInt(bi, -currency.BaseFactor), nil
+	return decimal.NewFromBigInt(bi, -currency.Subunits), nil
 }
 
-func (b *Blockchain) GetTransaction(transaction_hash string) (*transaction.Transaction, error) {
+func (b *Blockchain) GetTransaction(ctx context.Context, transactionHash string) (*transaction.Transaction, error) {
 	var resp *Transaction
-	if err := b.jsonRPC(&resp, "wallet/gettransactionbyid ", map[string]interface{}{
-		"value": transaction_hash,
+	if err := b.jsonRPC(ctx, &resp, "wallet/gettransactionbyid", map[string]interface{}{
+		"value": transactionHash,
 	}); err != nil {
 		return nil, err
 	}
 
-	ts, err := b.buildTransaction(resp)
+	ts, err := b.buildTransaction(ctx, resp)
 	if err != nil {
 		return nil, err
 	}
