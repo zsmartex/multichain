@@ -185,6 +185,8 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 		return []*transaction.Transaction{}, nil
 	}
 
+	toAddress = tx.To().Hex()
+
 	return []*transaction.Transaction{
 		{
 			Currency:    b.currency.ID,
