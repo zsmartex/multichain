@@ -10,7 +10,7 @@ import (
 
 func newBlockchain() blockchain.Blockchain {
 	bl := NewBlockchain()
-	bl.Configure(&blockchain.Settings{
+	bl.Configure(&blockchain.Setting{
 		URI: "https://api.shasta.trongrid.io",
 		Currencies: []*currency.Currency{
 			{

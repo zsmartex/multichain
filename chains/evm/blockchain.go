@@ -28,7 +28,7 @@ type Blockchain struct {
 	currency  *currency.Currency
 	contracts []*currency.Currency
 	client    *ethclient.Client
-	settings  *blockchain.Settings
+	setting   *blockchain.Setting
 }
 
 func NewBlockchain() blockchain.Blockchain {
@@ -37,17 +37,17 @@ func NewBlockchain() blockchain.Blockchain {
 	}
 }
 
-func (b *Blockchain) Configure(settings *blockchain.Settings) {
-	rpcClient, err := rpc.Dial(settings.URI)
+func (b *Blockchain) Configure(setting *blockchain.Setting) {
+	rpcClient, err := rpc.Dial(setting.URI)
 	if err != nil {
 		panic(err)
 	}
 
 	client := ethclient.NewClient(rpcClient)
 	b.client = client
-	b.settings = settings
+	b.setting = setting
 
-	for _, c := range settings.Currencies {
+	for _, c := range setting.Currencies {
 		if c.Options["erc20_contract_address"] != nil {
 			b.contracts = append(b.contracts, c)
 		} else {

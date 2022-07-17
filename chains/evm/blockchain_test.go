@@ -11,7 +11,7 @@ import (
 func newBlockchain() blockchain.Blockchain {
 	bl := NewBlockchain()
 
-	bl.Configure(&blockchain.Settings{
+	bl.Configure(&blockchain.Setting{
 		URI: "http://65.108.75.172:8575",
 		Currencies: []*currency.Currency{
 			{

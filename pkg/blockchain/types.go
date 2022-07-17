@@ -10,14 +10,14 @@ import (
 	"github.com/zsmartex/multichain/pkg/transaction"
 )
 
-type Settings struct {
+type Setting struct {
 	Currencies           []*currency.Currency
 	WhitelistedAddresses []string
 	URI                  string
 }
 
 type Blockchain interface {
-	Configure(settings *Settings)
+	Configure(setting *Setting)
 	GetLatestBlockNumber(ctx context.Context) (int64, error)
 	GetBlockByHash(ctx context.Context, hash string) (*block.Block, error)
 	GetBlockByNumber(ctx context.Context, blockNumber int64) (*block.Block, error)

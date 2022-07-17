@@ -10,7 +10,7 @@ import (
 
 func newBlockchain() blockchain.Blockchain {
 	bl := NewBlockchain()
-	bl.Configure(&blockchain.Settings{
+	bl.Configure(&blockchain.Setting{
 		URI: "https://young-fragrant-sunset.btc.quiknode.pro",
 		Currencies: []*currency.Currency{
 			{

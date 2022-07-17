@@ -49,7 +49,7 @@ type Block struct {
 
 type Blockchain struct {
 	currency *currency.Currency
-	settings *blockchain.Settings
+	setting  *blockchain.Setting
 	client   *resty.Client
 }
 
@@ -59,8 +59,8 @@ func NewBlockchain() blockchain.Blockchain {
 	}
 }
 
-func (b *Blockchain) Configure(settings *blockchain.Settings) {
-	b.settings = settings
+func (b *Blockchain) Configure(settings *blockchain.Setting) {
+	b.setting = settings
 
 	for _, c := range settings.Currencies {
 		// allow only one currency
@@ -90,7 +90,7 @@ func (b *Blockchain) jsonRPC(ctx context.Context, resp interface{}, method strin
 			"id":      rand.Int(),
 			"method":  method,
 			"params":  params,
-		}).Post(b.settings.URI)
+		}).Post(b.setting.URI)
 
 	if err != nil {
 		return err

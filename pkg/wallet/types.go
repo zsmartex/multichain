@@ -23,8 +23,8 @@ type SettingWallet struct {
 }
 
 type Setting struct {
-	Currency *currency.Currency
 	Wallet   *SettingWallet
+	Currency *currency.Currency
 }
 
 type Wallet interface {

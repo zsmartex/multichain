@@ -80,7 +80,7 @@ type Blockchain struct {
 	contracts  []*currency.Currency
 	currencies []*currency.Currency
 	client     *resty.Client
-	settings   *blockchain.Settings
+	setting    *blockchain.Setting
 }
 
 func NewBlockchain() blockchain.Blockchain {
@@ -89,12 +89,12 @@ func NewBlockchain() blockchain.Blockchain {
 	}
 }
 
-func (b *Blockchain) Configure(settings *blockchain.Settings) {
-	b.settings = settings
+func (b *Blockchain) Configure(setting *blockchain.Setting) {
+	b.setting = setting
 	b.client = resty.New()
-	b.currencies = settings.Currencies
+	b.currencies = setting.Currencies
 
-	for _, c := range settings.Currencies {
+	for _, c := range setting.Currencies {
 		if c.Options["trc20_contract_address"] != nil {
 			b.contracts = append(b.contracts, c)
 		} else {
@@ -117,7 +117,7 @@ func (b *Blockchain) jsonRPC(ctx context.Context, resp interface{}, method strin
 			"Content-Type": "application/json",
 		}).
 		SetBody(params).
-		Post(fmt.Sprintf("%s/%s", b.settings.URI, method))
+		Post(fmt.Sprintf("%s/%s", b.setting.URI, method))
 
 	if err != nil {
 		return err
