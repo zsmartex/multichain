@@ -161,7 +161,7 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 			return nil, err
 		}
 
-		options["gas_price"] = gasPrice
+		options["gas_price"] = int(gasPrice)
 	}
 
 	gasLimit := uint64(options["gas_limit"].(int))
@@ -204,7 +204,7 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Tra
 			return nil, err
 		}
 
-		options["gas_price"] = gasPrice
+		options["gas_price"] = int(gasPrice)
 	}
 
 	amount := w.ConvertToBaseUnit(tx.Amount)
