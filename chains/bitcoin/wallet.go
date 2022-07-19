@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strings"
 
@@ -92,27 +91,31 @@ func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err
 	return
 }
 
-func (w *Wallet) CreateTransaction(ctx context.Context, trans *transaction.Transaction) (transaction *transaction.Transaction, err error) {
+func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
 	var txid string
-	err = w.jsonRPC(ctx, &txid, "sendtoaddress",
-		trans.ToAddress,
-		trans.Amount,
+	if err := w.jsonRPC(ctx, &txid, "sendtoaddress",
+		tx.ToAddress,
+		tx.Amount,
 		"",
 		"",
 		false,
-	)
+	); err != nil {
+		return nil, err
+	}
 
-	trans.TxHash = null.StringFrom(txid)
+	tx.Status = transaction.StatusPending
+	tx.TxHash = null.StringFrom(txid)
 
-	return trans, err
+	return tx, nil
 }
 
 func (w *Wallet) LoadBalance(ctx context.Context) (balance decimal.Decimal, err error) {
 	var resp [][][]interface{}
 
 	err = w.jsonRPC(ctx, &resp, "listaddressgroupings")
-
-	fmt.Println(resp)
+	if err != nil {
+		return
+	}
 
 	for _, gr := range resp {
 		for _, addr := range gr {

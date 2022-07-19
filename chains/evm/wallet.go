@@ -146,15 +146,15 @@ func (w *Wallet) PrepareDepositCollection(ctx context.Context, depositTransactio
 	return depositTransaction, nil
 }
 
-func (w *Wallet) CreateTransaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error) {
+func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
 	if len(w.ContractAddress()) > 0 {
-		return w.createErc20Transaction(ctx, transaction)
+		return w.createErc20Transaction(ctx, tx)
 	} else {
-		return w.createEvmTransaction(ctx, transaction)
+		return w.createEvmTransaction(ctx, tx)
 	}
 }
 
-func (w *Wallet) createEvmTransaction(ctx context.Context, transaction *transaction.Transaction) (t *transaction.Transaction, err error) {
+func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Transaction) (t *transaction.Transaction, err error) {
 	options := w.mergeOptions(defaultEvmFee, w.currency.Options)
 
 	if options.GasPrice == 0 {
@@ -167,12 +167,12 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, transaction *transact
 	}
 
 	subunits := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
-	amount := transaction.Amount.Mul(subunits)
+	amount := tx.Amount.Mul(subunits)
 
 	var txid string
 	err = w.jsonRPC(ctx, &txid, "personal_sendTransaction", map[string]string{
 		"from":     w.normalizeAddress(w.wallet.Address),
-		"to":       w.normalizeAddress(transaction.ToAddress),
+		"to":       w.normalizeAddress(tx.ToAddress),
 		"value":    hexutil.EncodeBig(amount.BigInt()),
 		"gas":      hexutil.EncodeUint64(options.GasLimit),
 		"gasPrice": hexutil.EncodeUint64(options.GasPrice),
@@ -181,12 +181,13 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, transaction *transact
 		return nil, err
 	}
 
-	transaction.TxHash = null.StringFrom(txid)
+	tx.Status = transaction.StatusPending
+	tx.TxHash = null.StringFrom(txid)
 
-	return transaction, nil
+	return tx, nil
 }
 
-func (w *Wallet) createErc20Transaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error) {
+func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
 	options := w.mergeOptions(defaultErc20Fee, w.currency.Options)
 
 	if options.GasPrice == 0 {
@@ -199,14 +200,14 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, transaction *transa
 	}
 
 	subunits := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
-	amount := transaction.Amount.Mul(subunits)
+	amount := tx.Amount.Mul(subunits)
 
 	abiJSON, err := abi.JSON(strings.NewReader(abiDefinition))
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := abiJSON.Pack("transfer", common.HexToAddress(w.normalizeAddress(transaction.ToAddress)), amount.BigInt())
+	data, err := abiJSON.Pack("transfer", common.HexToAddress(w.normalizeAddress(tx.ToAddress)), amount.BigInt())
 	if err != nil {
 		return nil, err
 	}
@@ -223,9 +224,10 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, transaction *transa
 		return nil, err
 	}
 
-	transaction.TxHash = null.StringFrom(txid)
+	tx.Status = transaction.StatusPending
+	tx.TxHash = null.StringFrom(txid)
 
-	return transaction, nil
+	return tx, nil
 }
 
 func (w *Wallet) normalizeAddress(address string) string {

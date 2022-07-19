@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strings"
 
@@ -141,10 +140,6 @@ func (b *Blockchain) GetBlockByHash(ctx context.Context, hash string) (*block.Bl
 	transactions := make([]*transaction.Transaction, 0)
 	for _, tx := range resp.Tx {
 		transactions = append(transactions, b.buildTransaction(ctx, tx)...)
-	}
-
-	for _, t := range transactions {
-		fmt.Println(t)
 	}
 
 	return &block.Block{

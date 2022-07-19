@@ -71,8 +71,6 @@ func (w *Wallet) jsonRPC(ctx context.Context, resp interface{}, method string, p
 		return err
 	}
 
-	fmt.Println(response.String())
-
 	result := response.Result().(*Result)
 
 	if result.Error != nil {
@@ -153,6 +151,7 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 		return nil, err
 	}
 
+	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(resp.Transaction.TxID)
 
 	return tx, nil
@@ -173,6 +172,7 @@ func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, fmt.Errorf("failed to create trc20 transaction from %s to %s", w.wallet.Address, tx.ToAddress)
 	}
 
+	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(signedTxn["txID"].(string))
 
 	return tx, nil
