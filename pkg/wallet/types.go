@@ -34,7 +34,7 @@ type Wallet interface {
 	CreateAddress(ctx context.Context) (address string, secret string, err error)
 
 	// CreateTransaction Create a transaction and send it to the server
-	CreateTransaction(ctx context.Context, transaction *transaction.Transaction) (*transaction.Transaction, error)
+	CreateTransaction(ctx context.Context, transaction *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error)
 
 	// LoadBalance Load balance from wallet address
 	LoadBalance(ctx context.Context) (balance decimal.Decimal, err error)

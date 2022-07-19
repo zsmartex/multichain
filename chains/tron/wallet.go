@@ -21,12 +21,12 @@ import (
 	"github.com/zsmartex/multichain/pkg/wallet"
 )
 
-type options struct {
-	FeeLimit int64
+var defaultTrxFee = map[string]interface{}{
+	"fee_limit": 1_000_000,
 }
 
-var defaultFee = options{
-	FeeLimit: 1000000,
+var defaultTrc20Fee = map[string]interface{}{
+	"fee_limit": 10_000_000,
 }
 
 type Wallet struct {
@@ -103,9 +103,9 @@ func (w *Wallet) PrepareDepositCollection(_ context.Context, depositTransaction 
 		return nil, nil
 	}
 
-	options := w.mergeOptions(defaultFee, depositCurrency.Options)
+	options := w.mergeOptions(defaultTrxFee, depositCurrency.Options)
 
-	fees := decimal.NewFromBigInt(big.NewInt(options.FeeLimit), -w.currency.Subunits)
+	fees := decimal.NewFromBigInt(big.NewInt(options["fee_limit"].(int64)), -w.currency.Subunits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
 
 	depositTransaction.Amount = amount
@@ -114,28 +114,38 @@ func (w *Wallet) PrepareDepositCollection(_ context.Context, depositTransaction 
 		depositTransaction.Options = make(map[string]interface{})
 	}
 
-	if options.FeeLimit > 0 {
-		depositTransaction.Options["fee_limit"] = options.FeeLimit
+	if options["fee_limit"] != nil {
+		depositTransaction.Options["fee_limit"] = options["fee_limit"]
 	}
 
 	return depositTransaction, nil
 }
 
-func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
+func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
 	if w.currency.Options["trc20_contract_address"] != nil {
-		return w.createTrc20Transaction(ctx, tx)
+		return w.createTrc20Transaction(ctx, tx, options)
 	} else {
-		return w.createTrxTransaction(ctx, tx)
+		return w.createTrxTransaction(ctx, tx, options)
 	}
 }
 
-func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
+func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
+	options = w.mergeOptions(options, defaultTrxFee, w.currency.Options)
+
 	toAddress, err := concerns.Base58ToAddress(tx.ToAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	amount := tx.Amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits)))))
+	amount := w.ConvertToBaseUnit(tx.Amount)
+
+	if options["subtract_fee"] != nil {
+		if options["subtract_fee"].(bool) {
+			feeLimit := options["fee_limit"].(int64)
+
+			amount = amount.Sub(w.ConvertToBaseUnit(decimal.NewFromInt(feeLimit)))
+		}
+	}
 
 	var resp *struct {
 		Transaction struct {
@@ -146,7 +156,7 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 	if err := w.jsonRPC(ctx, &resp, "wallet/easytransferbyprivate", map[string]interface{}{
 		"privateKey": w.wallet.Secret,
 		"toAddress":  toAddress.Hex(),
-		"amount":     amount.BigInt(),
+		"amount":     amount,
 	}); err != nil {
 		return nil, err
 	}
@@ -157,8 +167,8 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 	return tx, nil
 }
 
-func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
-	options := w.mergeOptions(defaultFee, w.currency.Options)
+func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
+	options = w.mergeOptions(options, defaultTrc20Fee, w.currency.Options)
 
 	signedTxn, err := w.signTransaction(ctx, tx, options)
 	if err != nil {
@@ -178,7 +188,7 @@ func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Tra
 	return tx, nil
 }
 
-func (w *Wallet) signTransaction(ctx context.Context, tx *transaction.Transaction, options options) (map[string]interface{}, error) {
+func (w *Wallet) signTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (map[string]interface{}, error) {
 	txn, err := w.triggerSmartContract(ctx, tx, options)
 	if err != nil {
 		return nil, err
@@ -195,7 +205,7 @@ func (w *Wallet) signTransaction(ctx context.Context, tx *transaction.Transactio
 	return resp, nil
 }
 
-func (w *Wallet) triggerSmartContract(ctx context.Context, tx *transaction.Transaction, options options) (json.RawMessage, error) {
+func (w *Wallet) triggerSmartContract(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (json.RawMessage, error) {
 	contractAddress, err := concerns.Base58ToAddress(w.currency.Options["trc20_contract_address"].(string))
 	if err != nil {
 		return nil, err
@@ -215,8 +225,8 @@ func (w *Wallet) triggerSmartContract(ctx context.Context, tx *transaction.Trans
 		Transaction json.RawMessage `json:"transaction"`
 	}
 
-	subUnits := decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits))))
-	hexAmount := hexutil.EncodeBig(tx.Amount.Mul(subUnits).BigInt())
+	amount := w.ConvertToBaseUnit(tx.Amount)
+	hexAmount := hexutil.EncodeBig(amount.BigInt())
 	parameter := xstrings.RightJustify(toAddress.Hex()[2:], 64, "0") + xstrings.RightJustify(strings.TrimLeft(hexAmount, "0x"), 64, "0")
 
 	var result *respResult
@@ -224,7 +234,7 @@ func (w *Wallet) triggerSmartContract(ctx context.Context, tx *transaction.Trans
 		"contract_address":  contractAddress.Hex(),
 		"function_selector": "transfer(address,uint256)",
 		"parameter":         parameter,
-		"fee_limit":         options.FeeLimit,
+		"fee_limit":         options["fee_limit"],
 		"owner_address":     ownerAddress.Hex(),
 	}); err != nil {
 		return nil, err
@@ -291,16 +301,26 @@ func (w *Wallet) loadTrxBalance(ctx context.Context) (decimal.Decimal, error) {
 	return result.Balance, nil
 }
 
-func (w *Wallet) mergeOptions(first options, step map[string]interface{}) options {
-	opts := first
-
-	if step == nil {
-		return opts
+func (w *Wallet) mergeOptions(first map[string]interface{}, steps ...map[string]interface{}) map[string]interface{} {
+	if first == nil {
+		first = make(map[string]interface{})
 	}
 
-	if step["fee_limit"] != nil {
-		opts.FeeLimit = step["fee_limit"].(int64)
+	opts := first
+
+	for _, step := range steps {
+		for k, v := range step {
+			opts[k] = v
+		}
 	}
 
 	return opts
+}
+
+func (w *Wallet) ConvertToBaseUnit(amount decimal.Decimal) decimal.Decimal {
+	return amount.Mul(decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits)))))
+}
+
+func (w *Wallet) ConvertFromBaseUnit(amount decimal.Decimal) decimal.Decimal {
+	return amount.Div(decimal.NewFromInt(int64(math.Pow10(int(w.currency.Subunits)))))
 }

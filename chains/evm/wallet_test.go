@@ -96,7 +96,7 @@ func TestWallet_CreateEVMTransaction(t *testing.T) {
 		ToAddress: "0xF37111De2f6AE2f64Be1e59472b5C50801540C8c",
 		Amount:    decimal.NewFromFloat(0.001),
 		Currency:  "ETH",
-	})
+	}, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -120,7 +120,7 @@ func TestWallet_CreateErc20Transaction(t *testing.T) {
 	tx, err := w.CreateTransaction(context.Background(), &transaction.Transaction{
 		ToAddress: "0xF37111De2f6AE2f64Be1e59472b5C50801540C8c",
 		Amount:    decimal.NewFromFloat(0.01),
-	})
+	}, nil)
 	if err != nil {
 		t.Error(err)
 	}

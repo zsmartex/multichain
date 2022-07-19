@@ -91,14 +91,20 @@ func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err
 	return
 }
 
-func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction) (*transaction.Transaction, error) {
+func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
 	var txid string
+	var subtractFee bool
+
+	if options["subtract_fee"] != nil {
+		subtractFee = options["subtract_fee"].(bool)
+	}
+
 	if err := w.jsonRPC(ctx, &txid, "sendtoaddress",
 		tx.ToAddress,
 		tx.Amount,
 		"",
 		"",
-		false,
+		subtractFee,
 	); err != nil {
 		return nil, err
 	}

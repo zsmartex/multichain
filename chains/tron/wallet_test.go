@@ -56,7 +56,7 @@ func TestWallet_CreateTrxTransaction(t *testing.T) {
 	tx, err := w.CreateTransaction(context.Background(), &transaction.Transaction{
 		ToAddress: "TGKFmSijnD6iNLgaf7CbQVysw81MTDbvHq",
 		Amount:    decimal.NewFromFloat(30),
-	})
+	}, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,7 +82,7 @@ func TestWallet_CreateTrc20Transaction(t *testing.T) {
 		Amount:      decimal.NewFromFloat(30),
 		Currency:    "USDT",
 		CurrencyFee: "TRX",
-	})
+	}, nil)
 	if err != nil {
 		t.Error(err)
 	}
