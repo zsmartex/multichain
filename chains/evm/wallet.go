@@ -120,7 +120,7 @@ func (w *Wallet) PrepareDepositCollection(ctx context.Context, depositTransactio
 		return nil, err
 	}
 
-	gasLimit := options["gas_limit"].(uint64)
+	gasLimit := uint64(options["gas_limit"].(int))
 
 	fees := decimal.NewFromBigInt(big.NewInt(int64(gasLimit*gasPrice)), -w.currency.Subunits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
@@ -164,8 +164,8 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 		options["gas_price"] = gasPrice
 	}
 
-	gasLimit := options["gas_limit"].(uint64)
-	gasPrice := options["gas_price"].(uint64)
+	gasLimit := uint64(options["gas_limit"].(int))
+	gasPrice := uint64(options["gas_price"].(int))
 
 	amount := w.ConvertToBaseUnit(tx.Amount)
 
@@ -180,8 +180,8 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 		"from":     w.normalizeAddress(w.wallet.Address),
 		"to":       w.normalizeAddress(tx.ToAddress),
 		"value":    hexutil.EncodeBig(amount.BigInt()),
-		"gas":      hexutil.EncodeUint64(options["gas_limit"].(uint64)),
-		"gasPrice": hexutil.EncodeUint64(options["gas_price"].(uint64)),
+		"gas":      hexutil.EncodeUint64(gasLimit),
+		"gasPrice": hexutil.EncodeUint64(gasPrice),
 	}, w.wallet.Secret)
 	if err != nil {
 		return nil, err
@@ -219,13 +219,16 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, err
 	}
 
+	gasLimit := uint64(options["gas_limit"].(int))
+	gasPrice := uint64(options["gas_price"].(int))
+
 	var txid string
 	err = w.jsonRPC(ctx, &txid, "personal_sendTransaction", map[string]string{
 		"from":     w.normalizeAddress(w.wallet.Address),
 		"to":       w.ContractAddress(), // to contract address
 		"data":     hexutil.Encode(data),
-		"gas":      hexutil.EncodeUint64(options["gas_limit"].(uint64)),
-		"gasPrice": hexutil.EncodeUint64(options["gas_price"].(uint64)),
+		"gas":      hexutil.EncodeUint64(gasLimit),
+		"gasPrice": hexutil.EncodeUint64(gasPrice),
 	}, w.wallet.Secret)
 	if err != nil {
 		return nil, err

@@ -105,7 +105,7 @@ func (w *Wallet) PrepareDepositCollection(_ context.Context, depositTransaction 
 
 	options := w.mergeOptions(defaultTrxFee, depositCurrency.Options)
 
-	fees := decimal.NewFromBigInt(big.NewInt(options["fee_limit"].(int64)), -w.currency.Subunits)
+	fees := decimal.NewFromBigInt(big.NewInt(int64(options["fee_limit"].(int))), -w.currency.Subunits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
 
 	depositTransaction.Amount = amount
@@ -141,7 +141,7 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 
 	if options["subtract_fee"] != nil {
 		if options["subtract_fee"].(bool) {
-			feeLimit := options["fee_limit"].(int64)
+			feeLimit := int64(options["fee_limit"].(int))
 
 			amount = amount.Sub(w.ConvertToBaseUnit(decimal.NewFromInt(feeLimit)))
 		}
