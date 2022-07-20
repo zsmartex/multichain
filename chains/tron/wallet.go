@@ -161,7 +161,7 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 		return nil, err
 	}
 
-	tx.Fee = decimal.NewNullDecimal(fee)
+	tx.Fee = decimal.NewNullDecimal(w.ConvertFromBaseUnit(fee))
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(resp.Transaction.TxID)
 
@@ -186,7 +186,7 @@ func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, fmt.Errorf("failed to create trc20 transaction from %s to %s", w.wallet.Address, tx.ToAddress)
 	}
 
-	tx.Fee = decimal.NewNullDecimal(fee)
+	tx.Fee = decimal.NewNullDecimal(w.ConvertFromBaseUnit(fee))
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(signedTxn["txID"].(string))
 

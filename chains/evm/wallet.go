@@ -188,7 +188,7 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 		return nil, err
 	}
 
-	tx.Fee = decimal.NewNullDecimal(fee)
+	tx.Fee = decimal.NewNullDecimal(w.ConvertFromBaseUnit(fee))
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(txid)
 
@@ -238,7 +238,7 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, err
 	}
 
-	tx.Fee = decimal.NewNullDecimal(fee)
+	tx.Fee = decimal.NewNullDecimal(w.ConvertFromBaseUnit(fee))
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(txid)
 
