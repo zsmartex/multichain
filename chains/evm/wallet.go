@@ -168,10 +168,11 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 	gasPrice := uint64(options["gas_price"].(int))
 
 	amount := w.ConvertToBaseUnit(tx.Amount)
+	fee := decimal.NewFromInt(int64(gasLimit * gasPrice))
 
 	if options["subtract_fee"] != nil {
 		if options["subtract_fee"].(bool) {
-			amount = amount.Sub(decimal.NewFromInt(int64(gasLimit * gasPrice)))
+			amount = amount.Sub(fee)
 		}
 	}
 
@@ -187,6 +188,7 @@ func (w *Wallet) createEvmTransaction(ctx context.Context, tx *transaction.Trans
 		return nil, err
 	}
 
+	tx.Fee = decimal.NewNullDecimal(fee)
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(txid)
 
@@ -222,6 +224,8 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Tra
 	gasLimit := uint64(options["gas_limit"].(int))
 	gasPrice := uint64(options["gas_price"].(int))
 
+	fee := decimal.NewFromInt(int64(gasLimit * gasPrice))
+
 	var txid string
 	err = w.jsonRPC(ctx, &txid, "personal_sendTransaction", map[string]string{
 		"from":     w.normalizeAddress(w.wallet.Address),
@@ -234,6 +238,7 @@ func (w *Wallet) createErc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, err
 	}
 
+	tx.Fee = decimal.NewNullDecimal(fee)
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(txid)
 

@@ -252,6 +252,7 @@ func (b *Blockchain) buildTrxTransaction(txn *Transaction) (*transaction.Transac
 		ToAddress:   toAddress.String(),
 		FromAddress: fromAddress.String(),
 		Amount:      decimal.NewFromBigInt(big.NewInt(tx.Parameter.Value.Amount), -b.currency.Subunits),
+		Fee:         decimal.NewNullDecimal(decimal.NewFromFloat(1)),
 		Status:      transaction.StatusSucceed,
 	}
 
@@ -300,6 +301,7 @@ func (b *Blockchain) buildTrc20Transaction(txnReceipt *TransactionInfo) ([]*tran
 			ToAddress:   toAddress.String(),
 			FromAddress: fromAddress.String(),
 			Amount:      amount,
+			Fee:         decimal.NewNullDecimal(decimal.NewFromFloat(10)),
 			Status:      b.trc20TxnStatus(txnReceipt),
 		})
 	}

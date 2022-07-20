@@ -183,7 +183,7 @@ func (b *Blockchain) GetTransaction(ctx context.Context, transaction_hash string
 			ToAddress:   v.ScriptPubKey.Addresses[0],
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
-			Fee:         fee,
+			Fee:         decimal.NewNullDecimal(fee),
 			Amount:      v.Value,
 			Status:      transaction.StatusSucceed,
 		}

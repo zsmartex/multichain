@@ -138,12 +138,12 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 	}
 
 	amount := w.ConvertToBaseUnit(tx.Amount)
+	feeLimit := int64(options["fee_limit"].(int))
+	fee := w.ConvertToBaseUnit(decimal.NewFromInt(feeLimit))
 
 	if options["subtract_fee"] != nil {
 		if options["subtract_fee"].(bool) {
-			feeLimit := int64(options["fee_limit"].(int))
-
-			amount = amount.Sub(w.ConvertToBaseUnit(decimal.NewFromInt(feeLimit)))
+			amount = amount.Sub(fee)
 		}
 	}
 
@@ -161,6 +161,7 @@ func (w *Wallet) createTrxTransaction(ctx context.Context, tx *transaction.Trans
 		return nil, err
 	}
 
+	tx.Fee = decimal.NewNullDecimal(fee)
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(resp.Transaction.TxID)
 
@@ -175,6 +176,9 @@ func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, err
 	}
 
+	feeLimit := int64(options["fee_limit"].(int))
+	fee := w.ConvertToBaseUnit(decimal.NewFromInt(feeLimit))
+
 	resp := new(struct {
 		Result bool `json:"result"`
 	})
@@ -182,6 +186,7 @@ func (w *Wallet) createTrc20Transaction(ctx context.Context, tx *transaction.Tra
 		return nil, fmt.Errorf("failed to create trc20 transaction from %s to %s", w.wallet.Address, tx.ToAddress)
 	}
 
+	tx.Fee = decimal.NewNullDecimal(fee)
 	tx.Status = transaction.StatusPending
 	tx.TxHash = null.StringFrom(signedTxn["txID"].(string))
 

@@ -194,7 +194,7 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 			TxHash:      null.StringFrom(tx.Hash().Hex()),
 			FromAddress: msg.From().Hex(),
 			ToAddress:   toAddress,
-			Fee:         fee,
+			Fee:         decimal.NewNullDecimal(fee),
 			Amount:      amount,
 			Status:      b.transactionStatus(receipt),
 		},
@@ -234,7 +234,7 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 					TxHash:      null.StringFrom(tx.Hash().Hex()),
 					FromAddress: fromAddress,
 					ToAddress:   toAddress,
-					Fee:         fee,
+					Fee:         decimal.NewNullDecimal(fee),
 					Amount:      amount,
 					Status:      b.transactionStatus(receipt),
 				})
@@ -257,7 +257,7 @@ func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt
 				BlockNumber: receipt.BlockNumber.Int64(),
 				CurrencyFee: b.currency.ID,
 				Currency:    c.ID,
-				Fee:         fee,
+				Fee:         decimal.NewNullDecimal(fee),
 				Status:      b.transactionStatus(receipt),
 			})
 		}
