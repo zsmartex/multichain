@@ -26,7 +26,6 @@ type Transaction struct {
 	CurrencyFee string                 `json:"currency_fee,omitempty"`
 	FromAddress string                 `json:"from_address,omitempty"`
 	ToAddress   string                 `json:"to_address,omitempty"`
-	Fee         decimal.Decimal        `json:"fee,omitempty"`
 	Amount      decimal.Decimal        `json:"amount,omitempty"`
 	BlockNumber int64                  `json:"block_number,omitempty"`
 	TxHash      null.String            `json:"tx_hash,omitempty"`

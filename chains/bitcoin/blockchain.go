@@ -173,58 +173,17 @@ func (b *Blockchain) GetTransaction(ctx context.Context, transaction_hash string
 	}
 
 	for _, v := range b.buildVOut(resp.VOut) {
-		fee, err := b.calculateFee(ctx, resp)
-		if err != nil {
-			return nil, err
-		}
-
 		tx = &transaction.Transaction{
 			TxHash:      null.StringFrom(resp.TxID),
 			ToAddress:   v.ScriptPubKey.Addresses[0],
 			Currency:    b.currency.ID,
 			CurrencyFee: b.currency.ID,
-			Fee:         fee,
 			Amount:      v.Value,
 			Status:      transaction.StatusSucceed,
 		}
 	}
 
 	return
-}
-
-func (b *Blockchain) calculateFee(ctx context.Context, tx *TxHash) (decimal.Decimal, error) {
-	vins := decimal.Zero
-	vouts := decimal.Zero
-	for _, v := range tx.Vin {
-		vin := v.TxID
-		vin_id := v.VOut
-
-		if len(vin) == 0 {
-			continue
-		}
-
-		var resp *TxHash
-		if err := b.jsonRPC(ctx, &resp, "getrawtransaction", vin, 1); err != nil {
-			return decimal.Zero, err
-		}
-		if len(resp.VOut) == 0 {
-			continue
-		}
-
-		for _, vout := range resp.VOut {
-			if vout.N != vin_id {
-				continue
-			}
-
-			vins.Add(vout.Value)
-		}
-	}
-
-	for _, vout := range tx.VOut {
-		vouts.Add(vout.Value)
-	}
-
-	return vins.Sub(vouts), nil
 }
 
 func (b *Blockchain) buildVOut(vout []*VOut) []*VOut {

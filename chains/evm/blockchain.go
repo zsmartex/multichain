@@ -176,9 +176,7 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 		return nil, err
 	}
 
-	cost := decimal.NewFromBigInt(tx.Cost(), -b.currency.Subunits)
 	amount := decimal.NewFromBigInt(tx.Value(), -b.currency.Subunits)
-	fee := cost.Sub(amount)
 
 	var toAddress string
 	if tx.To() == nil {
@@ -194,7 +192,6 @@ func (b *Blockchain) buildETHTransactions(tx *types.Transaction, receipt *types.
 			TxHash:      null.StringFrom(tx.Hash().Hex()),
 			FromAddress: msg.From().Hex(),
 			ToAddress:   toAddress,
-			Fee:         fee,
 			Amount:      amount,
 			Status:      b.transactionStatus(receipt),
 		},
@@ -205,8 +202,6 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 	if b.transactionStatus(receipt) == transaction.StatusFailed && len(receipt.Logs) == 0 {
 		return b.buildInvalidErc20Transaction(tx, receipt)
 	}
-
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
 
 	transactions := make([]*transaction.Transaction, 0)
 	for _, l := range receipt.Logs {
@@ -234,7 +229,6 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 					TxHash:      null.StringFrom(tx.Hash().Hex()),
 					FromAddress: fromAddress,
 					ToAddress:   toAddress,
-					Fee:         fee,
 					Amount:      amount,
 					Status:      b.transactionStatus(receipt),
 				})
@@ -246,8 +240,6 @@ func (b *Blockchain) buildERC20Transactions(tx *types.Transaction, receipt *type
 }
 
 func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt *types.Receipt) ([]*transaction.Transaction, error) {
-	fee := decimal.NewFromBigInt(big.NewInt(int64(receipt.GasUsed*tx.GasFeeCap().Uint64())), -b.currency.Subunits)
-
 	transactions := make([]*transaction.Transaction, 0)
 
 	for _, c := range b.contracts {
@@ -257,7 +249,6 @@ func (b *Blockchain) buildInvalidErc20Transaction(tx *types.Transaction, receipt
 				BlockNumber: receipt.BlockNumber.Int64(),
 				CurrencyFee: b.currency.ID,
 				Currency:    c.ID,
-				Fee:         fee,
 				Status:      b.transactionStatus(receipt),
 			})
 		}
