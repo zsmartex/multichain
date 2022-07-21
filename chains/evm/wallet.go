@@ -108,7 +108,7 @@ func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err
 }
 
 // PrepareDepositCollection this func don't execute create transaction just return transaction was built
-func (w *Wallet) PrepareDepositCollection(ctx context.Context, depositTransaction *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(ctx context.Context, tx *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error) {
 	if depositCurrency.Options["erc20_contract_address"] == nil {
 		return nil, nil
 	}
@@ -125,21 +125,21 @@ func (w *Wallet) PrepareDepositCollection(ctx context.Context, depositTransactio
 	fees := decimal.NewFromBigInt(big.NewInt(int64(gasLimit*gasPrice)), -w.currency.Subunits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
 
-	depositTransaction.Amount = amount
+	tx.Amount = amount
 
-	if depositTransaction.Options == nil {
-		depositTransaction.Options = make(map[string]interface{})
+	if tx.Options == nil {
+		tx.Options = make(map[string]interface{})
 	}
 
 	if options["gas_limit"] != nil {
-		depositTransaction.Options["gas_limit"] = options["gas_limit"]
+		tx.Options["gas_limit"] = options["gas_limit"]
 	}
 
 	if options["gas_price"] != 0 {
-		depositTransaction.Options["gas_price"] = options["gas_price"]
+		tx.Options["gas_price"] = options["gas_price"]
 	}
 
-	return depositTransaction, nil
+	return w.createEvmTransaction(ctx, tx, nil)
 }
 
 func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
@@ -322,6 +322,10 @@ func (w *Wallet) loadBalanceErc20Balance(ctx context.Context, address string) (b
 
 func (w *Wallet) hexToDecimal(hex string) (decimal.Decimal, error) {
 	hex = "0x" + strings.TrimLeft(strings.TrimLeft(hex, "0x"), "0")
+
+	if hex == "0x" {
+		return decimal.Zero, nil
+	}
 
 	b, err := hexutil.DecodeBig(hex)
 	if err != nil {

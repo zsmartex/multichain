@@ -98,7 +98,7 @@ func (w *Wallet) CreateAddress(ctx context.Context) (address, secret string, err
 	return resp.Address, resp.PrivateKey, err
 }
 
-func (w *Wallet) PrepareDepositCollection(_ context.Context, depositTransaction *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error) {
+func (w *Wallet) PrepareDepositCollection(ctx context.Context, tx *transaction.Transaction, depositSpreads []*transaction.Transaction, depositCurrency *currency.Currency) (*transaction.Transaction, error) {
 	if depositCurrency.Options["trc20_contract_address"] == nil {
 		return nil, nil
 	}
@@ -108,17 +108,17 @@ func (w *Wallet) PrepareDepositCollection(_ context.Context, depositTransaction 
 	fees := decimal.NewFromBigInt(big.NewInt(int64(options["fee_limit"].(int))), -w.currency.Subunits)
 	amount := fees.Mul(decimal.NewFromInt(int64(len(depositSpreads))))
 
-	depositTransaction.Amount = amount
+	tx.Amount = amount
 
-	if depositTransaction.Options == nil {
-		depositTransaction.Options = make(map[string]interface{})
+	if tx.Options == nil {
+		tx.Options = make(map[string]interface{})
 	}
 
 	if options["fee_limit"] != nil {
-		depositTransaction.Options["fee_limit"] = options["fee_limit"]
+		tx.Options["fee_limit"] = options["fee_limit"]
 	}
 
-	return depositTransaction, nil
+	return w.createTrxTransaction(ctx, tx, nil)
 }
 
 func (w *Wallet) CreateTransaction(ctx context.Context, tx *transaction.Transaction, options map[string]interface{}) (*transaction.Transaction, error) {
