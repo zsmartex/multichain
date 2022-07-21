@@ -127,18 +127,6 @@ func (w *Wallet) PrepareDepositCollection(ctx context.Context, tx *transaction.T
 
 	tx.Amount = amount
 
-	if tx.Options == nil {
-		tx.Options = make(map[string]interface{})
-	}
-
-	if options["gas_limit"] != nil {
-		tx.Options["gas_limit"] = options["gas_limit"]
-	}
-
-	if options["gas_price"] != 0 {
-		tx.Options["gas_price"] = options["gas_price"]
-	}
-
 	return w.createEvmTransaction(ctx, tx, nil)
 }
 

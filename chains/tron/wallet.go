@@ -110,14 +110,6 @@ func (w *Wallet) PrepareDepositCollection(ctx context.Context, tx *transaction.T
 
 	tx.Amount = amount
 
-	if tx.Options == nil {
-		tx.Options = make(map[string]interface{})
-	}
-
-	if options["fee_limit"] != nil {
-		tx.Options["fee_limit"] = options["fee_limit"]
-	}
-
 	return w.createTrxTransaction(ctx, tx, nil)
 }
 
